@@ -3,13 +3,21 @@
   "version": "0.1.0",
   "scripts": {
     "dev": "bun --watch src/index.ts",
+    "dev:web": "vite --config web/vite.config.ts",
+    "build:web": "vite build --config web/vite.config.ts",
     "start": "bun src/index.ts"
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "typescript": "^5.9.3"
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.1"
   },
   "dependencies": {
-    "postgres": "^3.4.8"
+    "postgres": "^3.4.8",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
   }
 }

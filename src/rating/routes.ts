@@ -9,6 +9,7 @@ import {
   getLeaderboard,
   updateProvider,
 } from "./providers";
+import { getDashboardStats } from "./stats";
 
 function json(data: unknown, status = 200) {
   return Response.json(data, { status });
@@ -112,6 +113,14 @@ export async function handleRatingRoute(
 
     if (!updated) return err("Provider not found", 404);
     return json({ provider: updated });
+  }
+
+  // GET /v1/stats
+  if (req.method === "GET" && url.pathname === "/v1/stats") {
+    const range = url.searchParams.get("range") ?? "24h";
+    const valid = ["1m", "5m", "1h", "24h", "all"];
+    const r = valid.includes(range) ? (range as any) : "24h";
+    return json(await getDashboardStats(r));
   }
 
   return null;

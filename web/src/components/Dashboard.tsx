@@ -1,0 +1,122 @@
+import { useState, useEffect, useCallback } from "react";
+import { fetchStats, fetchProviders } from "../api";
+import type { DashboardStats, ProviderWithStats, TimeRange, SortOption } from "../types";
+import { StatCard } from "./StatCard";
+import { TimeRangeToggle } from "./TimeRangeToggle";
+import { ProviderTable } from "./ProviderTable";
+import { ActivityFeed } from "./ActivityFeed";
+import { SearchBar } from "./SearchBar";
+import { Globe } from "./Globe";
+
+const SKILL_PROMPT = `Read ${window.location.origin}/skill.md and follow the instructions.`
+
+export function Dashboard({ onSelectProvider }: { onSelectProvider: (id: string) => void }) {
+  const [range, setRange] = useState<TimeRange>("24h");
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [providers, setProviders] = useState<ProviderWithStats[]>([]);
+  const [query, setQuery] = useState("");
+  const [sortBy] = useState<SortOption>("total_payments");
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    fetchStats(range).then(setStats).catch(() => { });
+  }, [range]);
+
+  useEffect(() => {
+    fetchProviders({ q: query || undefined, sortBy })
+      .then(setProviders)
+      .catch(() => setProviders([]));
+  }, [query, sortBy]);
+
+  const copyPrompt = useCallback(() => {
+    navigator.clipboard.writeText(SKILL_PROMPT).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, []);
+
+  return (
+    <div className="dashboard">
+      <div className="dash-hero">
+        <div className="dash-hero-text">
+          <h1 className="dash-title">Universal MPP</h1>
+          <p className="dash-subtitle">Explorer</p>
+        </div>
+      </div>
+
+      {/* CTA */}
+      <div className="cta-card">
+        <div className="cta-glow" />
+        <div className="cta-content">
+          <h2 className="cta-heading">Onboard your AI</h2>
+          <p className="cta-prompt">{SKILL_PROMPT}</p>
+          <button className="cta-copy" onClick={copyPrompt}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              {copied ? (
+                <path d="M4 8.5l2.5 2.5L12 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              ) : (
+                <>
+                  <rect x="5" y="5" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+                  <path d="M3 11V3.5A1.5 1.5 0 014.5 2H11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </>
+              )}
+            </svg>
+            {copied ? "Copied!" : "Copy to Clipboard"}
+          </button>
+          <p className="cta-footer">Pay for any MPP-enabled API, with any asset, on any chain.</p>
+        </div>
+      </div>
+
+      <section className="dash-section">
+        <div className="dash-section-header">
+          <h2 className="section-title">Usage</h2>
+          <TimeRangeToggle value={range} onChange={setRange} />
+        </div>
+
+        <div className="stat-grid">
+          <StatCard
+            label="Transactions"
+            value={stats?.totals.transactions ?? 0}
+            series={stats?.series.transactions ?? []}
+            color="#555"
+            delay={0}
+          />
+          <StatCard
+            label="Providers"
+            value={stats?.totals.providers ?? 0}
+            series={stats?.series.transactions ?? []}
+            color="#555"
+            delay={80}
+          />
+          <StatCard
+            label="Ratings"
+            value={stats?.totals.ratings ?? 0}
+            series={stats?.series.ratings ?? []}
+            color="#555"
+            delay={160}
+          />
+        </div>
+      </section>
+
+      <section className="dash-section">
+        <Globe />
+      </section>
+
+      <section className="dash-section">
+        <div className="dash-section-header">
+          <h2 className="section-title">Servers</h2>
+          <SearchBar value={query} onChange={setQuery} />
+        </div>
+        <ProviderTable providers={providers} onSelect={onSelectProvider} />
+      </section>
+
+      <section className="dash-section">
+        <h2 className="section-title">
+          Recent Activity
+          <span className="live-dot" />
+        </h2>
+        <ActivityFeed payments={stats?.recentPayments ?? []} />
+      </section>
+    </div>
+  );
+}

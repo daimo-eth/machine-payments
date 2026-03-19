@@ -1,0 +1,82 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --color-bg: #0a0a0a;
+  --color-surface: #141414;
+  --color-surface-hover: #1a1a1a;
+  --color-border: #222;
+  --color-border-subtle: #1a1a1a;
+  --color-text: #e0e0e0;
+  --color-text-secondary: #888;
+  --color-text-muted: #555;
+  --color-accent: #e0e0e0;
+  --color-accent-dim: rgba(255, 255, 255, 0.06);
+  --color-amber: #a89060;
+  --color-indigo: #7878a0;
+  --color-pink: #a07080;
+  --color-red: #a05050;
+  --color-star: #a89060;
+  --font: 'IBM Plex Mono', 'SF Mono', 'Fira Code', monospace;
+  --radius: 4px;
+  --radius-sm: 2px;
+}
+
+html { font-size: 14px; }
+
+body {
+  font-family: var(--font);
+  background: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a { color: var(--color-text-secondary); text-decoration: none; }
+a:hover { color: var(--color-text); }
+
+button {
+  font-family: var(--font);
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+}
+
+input, select {
+  font-family: var(--font);
+  font-size: inherit;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes barGrow {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.fade-in { animation: fadeIn 0.3s ease; }
+
+.loading {
+  text-align: center;
+  padding: 64px;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
