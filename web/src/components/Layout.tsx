@@ -62,6 +62,9 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
       </header>
       <main className="page">{children}</main>
+      <footer className="footer">
+        <span>Built by <a href="https://daimo.com" target="_blank" rel="noopener noreferrer">Daimo</a></span>
+      </footer>
     </div>
   );
 }
