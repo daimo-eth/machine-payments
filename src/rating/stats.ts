@@ -65,9 +65,21 @@ export async function getDashboardStats(range: TimeRange = "24h") {
     status: string;
     created_at: string;
     original_url: string | null;
+    original_method: string | null;
+    challenge_realm: string | null;
+    challenge_description: string | null;
+    challenge_request: string | null;
+    output_tx_hash: string | null;
+    deposit_address: string | null;
   }[]>`
     SELECT id, status, created_at,
-           original_request->>'url' as original_url
+           original_request->>'url' as original_url,
+           original_request->>'method' as original_method,
+           challenge->>'realm' as challenge_realm,
+           challenge->>'description' as challenge_description,
+           challenge->>'request' as challenge_request,
+           output_tx_hash,
+           deposit_address
     FROM mpp_payments
     ORDER BY created_at DESC LIMIT 20
   `;

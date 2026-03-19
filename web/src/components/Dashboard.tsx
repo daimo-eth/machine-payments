@@ -99,6 +99,14 @@ export function Dashboard({ onSelectProvider }: { onSelectProvider: (id: string)
       </section>
 
       <section className="dash-section">
+        <h2 className="section-title">
+          Payment Ticker
+          <span className="live-dot" />
+        </h2>
+        <ActivityFeed payments={stats?.recentPayments ?? []} />
+      </section>
+
+      <section className="dash-section">
         <Globe />
       </section>
 
@@ -108,14 +116,6 @@ export function Dashboard({ onSelectProvider }: { onSelectProvider: (id: string)
           <SearchBar value={query} onChange={setQuery} />
         </div>
         <ProviderTable providers={providers} onSelect={onSelectProvider} />
-      </section>
-
-      <section className="dash-section">
-        <h2 className="section-title">
-          Recent Activity
-          <span className="live-dot" />
-        </h2>
-        <ActivityFeed payments={stats?.recentPayments ?? []} />
       </section>
     </div>
   );
