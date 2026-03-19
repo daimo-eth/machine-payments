@@ -413,6 +413,15 @@ const server = Bun.serve({
     const ratingRes = await handleRatingRoute(req, url);
     if (ratingRes) return ratingRes;
 
+    // Static file serving (web/dist)
+    const staticDir = import.meta.dir + "/../web/dist";
+    const filePath = url.pathname === "/" ? "/index.html" : url.pathname;
+    const file = Bun.file(staticDir + filePath);
+    if (await file.exists()) return new Response(file);
+    // SPA fallback
+    const indexFile = Bun.file(staticDir + "/index.html");
+    if (await indexFile.exists()) return new Response(indexFile);
+
     return error("Not found", 404);
   },
 });
