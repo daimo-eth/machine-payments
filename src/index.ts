@@ -71,16 +71,12 @@ async function handleMppRequest(req: Request): Promise<Response> {
     ...(input.body ? { body: JSON.stringify(input.body) } : {}),
   });
 
-  // 2. If not 402, return the response directly
+  // 2. If not 402, this isn't an MPP-gated request
   if (targetRes.status !== 402) {
-    let body: unknown;
-    const ct = targetRes.headers.get("content-type") ?? "";
-    if (ct.includes("json")) {
-      body = await targetRes.json();
-    } else {
-      body = await targetRes.text();
-    }
-    return json({ status: "success", response: { status: targetRes.status, body } });
+    return error(
+      `${input.url} returned ${targetRes.status}, not 402. This endpoint does not require MPP payment. Call it directly instead.`,
+      400
+    );
   }
 
   // 3. Parse and validate MPP 402 challenge (only charge intent supported)
