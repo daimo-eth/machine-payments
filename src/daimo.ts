@@ -1,6 +1,6 @@
 /** Daimo Session API client. */
 
-const DAIMO_API_URL = "https://pay.daimo.com";
+const DAIMO_API_URL = "https://daimo.com";
 
 function getApiKey(): string {
   const key = process.env.DAIMO_API_KEY;
