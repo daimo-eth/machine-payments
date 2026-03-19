@@ -5,19 +5,19 @@
 :root {
   --color-bg: #0a0a0a;
   --color-surface: #141414;
-  --color-surface-hover: #1a1a1a;
-  --color-border: #222;
-  --color-border-subtle: #1a1a1a;
-  --color-text: #e0e0e0;
-  --color-text-secondary: #888;
-  --color-text-muted: #555;
-  --color-accent: #e0e0e0;
+  --color-surface-hover: #1c1c1c;
+  --color-border: #2a2a2a;
+  --color-border-subtle: #1e1e1e;
+  --color-text: #f0f0f0;
+  --color-text-secondary: #aaa;
+  --color-text-muted: #707070;
+  --color-accent: #f0f0f0;
   --color-accent-dim: rgba(255, 255, 255, 0.06);
-  --color-amber: #a89060;
-  --color-indigo: #7878a0;
-  --color-pink: #a07080;
-  --color-red: #a05050;
-  --color-star: #a89060;
+  --color-amber: #c9a050;
+  --color-indigo: #9090c0;
+  --color-pink: #c08090;
+  --color-red: #c06060;
+  --color-star: #c9a050;
   --font: 'IBM Plex Mono', 'SF Mono', 'Fira Code', monospace;
   --radius: 4px;
   --radius-sm: 2px;
@@ -68,6 +68,13 @@ input, select {
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
+}
+
+@keyframes flashIn {
+  0% { opacity: 0; transform: translateX(8px); }
+  20% { opacity: 1; transform: translateX(0); }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 .fade-in { animation: fadeIn 0.3s ease; }
