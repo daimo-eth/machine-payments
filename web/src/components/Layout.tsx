@@ -45,20 +45,20 @@ export function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="layout">
       <header className="header">
-        <div className="header-left">
+        <div className="header-inner">
           <a href="/" className="header-brand" onClick={goHome}>
             <span className="header-wordmark">mpp.daimo.com</span>
           </a>
-        </div>
-        <div className="header-live">
-          <span className="header-live-dot" />
-          {flash ? (
-            <span className="header-live-text header-live-flash" key={flash.key}>
-              {flash.status === "succeeded" ? "Paid" : flash.status} &middot; {shortUrl(flash.url)}
-            </span>
-          ) : (
-            <span className="header-live-text">Live</span>
-          )}
+          <div className="header-live">
+            <span className="header-live-dot" />
+            {flash ? (
+              <span className="header-live-text header-live-flash" key={flash.key}>
+                {flash.status === "succeeded" ? "Paid" : flash.status} &middot; {shortUrl(flash.url)}
+              </span>
+            ) : (
+              <span className="header-live-text">Live</span>
+            )}
+          </div>
         </div>
       </header>
       <main className="page">{children}</main>
