@@ -5,7 +5,8 @@
     "dev": "bun --watch src/index.ts",
     "dev:web": "vite --config web/vite.config.ts",
     "build:web": "vite build --config web/vite.config.ts",
-    "start": "bun src/index.ts"
+    "start": "bun src/index.ts",
+    "test": "tsc --noEmit && bun test"
   },
   "devDependencies": {
     "@types/bun": "latest",
