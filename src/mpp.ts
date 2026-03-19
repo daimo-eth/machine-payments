@@ -107,13 +107,13 @@ export function validateMpp402(authHeader: string): {
 } | { error: string } {
   const challenges = parseMppChallenges(authHeader);
   if (challenges.length === 0) {
-    return { error: "No tempo Payment challenge found in 402 response" };
+    return { error: "Not an MPP service (no tempo Payment challenge in 402 response)" };
   }
 
   const challenge = challenges.find(c => SUPPORTED_INTENTS.includes(c.intent));
   if (!challenge) {
     const intents = challenges.map(c => c.intent).join(", ");
-    return { error: `Unsupported MPP intent(s): ${intents}. Supported: ${SUPPORTED_INTENTS.join(", ")}` };
+    return { error: `MPP intent "${intents}" is not yet supported (only charge intent is supported)` };
   }
 
   const request = decodeMppRequest(challenge);

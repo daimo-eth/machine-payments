@@ -86,12 +86,15 @@ async function handleMppRequest(req: Request): Promise<Response> {
   // 3. Parse and validate MPP 402 challenge (only charge intent supported)
   const authHeader = targetRes.headers.get("www-authenticate");
   if (!authHeader) {
-    return error("402 response has no WWW-Authenticate header", 502);
+    return error(
+      `${input.url} returned 402 but is not an MPP service (no WWW-Authenticate header). Call it directly instead.`,
+      502
+    );
   }
 
   const validated = validateMpp402(authHeader);
   if ("error" in validated) {
-    return error(validated.error, 502);
+    return error(`${validated.error}. Use ${input.url} directly instead.`, 502);
   }
 
   const { challenge, request: mppReq } = validated;
