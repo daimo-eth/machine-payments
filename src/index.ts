@@ -8,6 +8,9 @@ import {
   atomicToUnits,
 } from "./mpp";
 import { createPayment, getPayment, updatePayment } from "./store";
+import { handleRatingRoute } from "./rating/routes";
+import { logEvent } from "./rating/events";
+import { ensureProvider } from "./rating/providers";
 
 function json(data: unknown, status = 200) {
   return Response.json(data, { status });
@@ -138,7 +141,18 @@ async function handleMppRequest(req: Request): Promise<Response> {
     tokenOptions,
   });
 
-  // 9. Return payment info to agent
+  // 9. Log payment initiation event
+  ensureProvider(input.url, challenge.intent);
+  logEvent({
+    type: "payment.initiated",
+    providerUrl: input.url,
+    paymentId: payment.id,
+    daimoSessionId: session.sessionId,
+    agentWallet: input.wallet.evmAddress ?? input.wallet.solanaAddress,
+    amount: amountUnits,
+  });
+
+  // 10. Return payment info to agent
   return json({
     status: "payment_required",
     paymentId: payment.id,
@@ -209,6 +223,13 @@ async function handleMppPoll(
       status: "failed",
       error: `Daimo session ${session.status}`,
     });
+    logEvent({
+      type: "payment.failed",
+      providerUrl: payment.originalRequest.url,
+      paymentId,
+      daimoSessionId: payment.daimoSessionId,
+      metadata: { reason: session.status },
+    });
     return json(
       { status: "failed", error: `Daimo session ${session.status}` },
       400
@@ -239,6 +260,13 @@ async function handleMppPoll(
         status: "failed",
         error: `Replay request failed: ${e}`,
       });
+      logEvent({
+        type: "payment.failed",
+        providerUrl: payment.originalRequest.url,
+        paymentId,
+        daimoSessionId: payment.daimoSessionId,
+        metadata: { reason: `Replay failed: ${e}` },
+      });
       return error(`Replay request failed: ${e}`, 502);
     }
 
@@ -253,6 +281,13 @@ async function handleMppPoll(
 
     const finalResponse = { status: replayRes.status, body };
     updatePayment(paymentId, { status: "succeeded", finalResponse });
+
+    logEvent({
+      type: "payment.succeeded",
+      providerUrl: payment.originalRequest.url,
+      paymentId,
+      daimoSessionId: payment.daimoSessionId,
+    });
 
     return json({ status: "succeeded", response: finalResponse });
   }
@@ -282,6 +317,9 @@ const server = Bun.serve({
       const txHash = url.searchParams.get("txHash") ?? undefined;
       return handleMppPoll(paymentId, txHash);
     }
+
+    const ratingRes = await handleRatingRoute(req, url);
+    if (ratingRes) return ratingRes;
 
     return error("Not found", 404);
   },
