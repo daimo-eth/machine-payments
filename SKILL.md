@@ -6,15 +6,22 @@ Full API reference: https://mpp.daimo.com/llms.txt
 
 ## Find services
 
-Search the directory by keyword, or browse top-rated services.
+List all providers, search by keyword, or filter by category.
 
 ```
-GET https://mpp.daimo.com/v1/providers?q=web+search&limit=5
-GET https://mpp.daimo.com/v1/providers/leaderboard?limit=10
+GET https://mpp.daimo.com/v1/providers?limit=20
+GET https://mpp.daimo.com/v1/providers?q=web+search
+GET https://mpp.daimo.com/v1/providers?category=ai
 GET https://mpp.daimo.com/v1/providers/<id>
 ```
 
-Each provider includes `avg_score`, `total_ratings`, and `total_payments`.
+Each provider includes `name`, `description`, `category`, `avg_score`,
+`total_ratings`, and `total_payments`. Sort with `sortBy=total_payments`,
+`sortBy=avg_score`, or `sortBy=total_ratings`. Paginate with `limit` and
+`offset`.
+
+Once providers have ratings, `GET /v1/providers/leaderboard` ranks the
+top-rated ones (minimum 3 ratings).
 
 ## Make a payment
 
