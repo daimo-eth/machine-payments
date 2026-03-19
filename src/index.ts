@@ -392,9 +392,10 @@ const server = Bun.serve({
       return json({ ok: true });
     }
 
-    // Serve static docs
-    if (url.pathname === "/SKILL.md" || url.pathname === "/llms.txt") {
-      const file = Bun.file(import.meta.dir + "/.." + url.pathname);
+    // Serve static docs (before SPA fallback)
+    if (url.pathname === "/SKILL.md" || url.pathname === "/skill.md" || url.pathname === "/llms.txt") {
+      const filename = url.pathname === "/skill.md" ? "/SKILL.md" : url.pathname;
+      const file = Bun.file(import.meta.dir + "/.." + filename);
       if (await file.exists()) {
         return new Response(file, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
       }
