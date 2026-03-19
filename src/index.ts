@@ -17,7 +17,6 @@ import {
   getCompletionAttempts,
 } from "./store";
 import { handleRatingRoute } from "./rating/routes";
-import { logEvent } from "./rating/events";
 import { ensureProvider } from "./rating/providers";
 
 const MAX_COMPLETION_ATTEMPTS = 10;
@@ -50,6 +49,7 @@ type MppRequestBody = {
   wallet: { evmAddress?: string; solanaAddress?: string };
 };
 
+/** Forward request to target service, handle 402 by creating a Daimo session. */
 async function handleMppRequest(req: Request): Promise<Response> {
   let input: MppRequestBody;
   try {
@@ -146,7 +146,7 @@ async function handleMppRequest(req: Request): Promise<Response> {
     return error(`Failed to get token options: ${e}`, 502);
   }
 
-  // 8. Store payment state
+  // 8. Store payment + auto-create provider
   const payment = await createMppPayment({
     daimoSessionId: session.sessionId,
     daimoClientSecret: session.clientSecret,
@@ -161,18 +161,9 @@ async function handleMppRequest(req: Request): Promise<Response> {
     tokenOptions,
   });
 
-  // 9. Log payment initiation event
-  ensureProvider(input.url, challenge.intent);
-  logEvent({
-    type: "payment.initiated",
-    providerUrl: input.url,
-    paymentId: payment.id,
-    daimoSessionId: session.sessionId,
-    agentWallet: input.wallet.evmAddress ?? input.wallet.solanaAddress,
-    amount: amountUnits,
-  });
+  await ensureProvider(input.url);
 
-  // 10. Return payment info to agent
+  // 9. Return payment info to agent
   return json({
     status: "payment_required",
     paymentId: payment.id,
@@ -188,6 +179,7 @@ async function handleMppRequest(req: Request): Promise<Response> {
 
 // -- GET /v1/mpp/poll/:paymentId --
 
+/** Poll Daimo session status. On success, replay request with MPP auth. */
 async function handleMppPoll(
   paymentId: string,
   txHash?: string
@@ -197,7 +189,7 @@ async function handleMppPoll(
     return error("Payment not found", 404);
   }
 
-  // -- Terminal states: return cached result --
+  // Terminal states: return cached result
   if (payment.status !== "pending") {
     if (payment.status === "succeeded" && payment.finalCompletionAttemptId) {
       const attempt = await getCompletionAttempt(payment.finalCompletionAttemptId);
@@ -209,7 +201,6 @@ async function handleMppPoll(
         },
       });
     }
-    // Failed: either Daimo failure (no attempts) or exhausted attempts
     if (payment.finalCompletionAttemptId) {
       const attempt = await getCompletionAttempt(payment.finalCompletionAttemptId);
       return json({
@@ -223,7 +214,7 @@ async function handleMppPoll(
     return json({ status: "failed", error: payment.failureReason }, 400);
   }
 
-  // -- Pending: poll Daimo session --
+  // Poll Daimo session
   let session: daimo.DaimoSession;
   try {
     if (txHash) {
@@ -248,36 +239,26 @@ async function handleMppPoll(
     return json({ status: "pending", nextPollWaitS: 2 });
   }
 
-  // Daimo failed -- terminal, no completion attempts possible
+  // Daimo failed
   if (session.status === "bounced" || session.status === "expired") {
     const reason = `Daimo session ${session.status}`;
     await updateMppPayment(paymentId, { status: "failed", failureReason: reason });
-    logEvent({
-      type: "payment.failed",
-      providerUrl: payment.originalRequest.url,
-      paymentId,
-      daimoSessionId: payment.daimoSessionId,
-      metadata: { reason: session.status },
-    });
     return json({ status: "failed", error: reason }, 400);
   }
 
-  // Daimo succeeded -- run a completion attempt
+  // Daimo succeeded -- attempt completion
   if (session.status === "succeeded") {
     const outputTxHash = session.destination.delivery?.txHash;
     if (!outputTxHash) {
       return error("Session succeeded but no delivery txHash", 502);
     }
 
-    // Persist output_tx_hash on first observation
     if (!payment.outputTxHash) {
       await updateMppPayment(paymentId, { outputTxHash });
     }
 
-    // Check how many attempts we've already made
     const priorAttempts = await getCompletionAttempts(paymentId);
     if (priorAttempts.length >= MAX_COMPLETION_ATTEMPTS) {
-      // Safety: should already be terminal, but handle gracefully
       const last = priorAttempts[priorAttempts.length - 1];
       await updateMppPayment(paymentId, {
         status: "failed",
@@ -290,7 +271,7 @@ async function handleMppPoll(
       }, 400);
     }
 
-    // Build credential and replay
+    // Build MPP credential and replay original request
     const authValue = buildMppCredential(payment.challenge, outputTxHash);
     const orig = payment.originalRequest;
     const replayHeaders = { ...orig.headers, Authorization: authValue };
@@ -304,7 +285,6 @@ async function handleMppPoll(
         ...(orig.body ? { body: orig.body } : {}),
       });
     } catch (e) {
-      // Network error
       const attempt = await createCompletionAttempt({
         paymentId,
         deliveryTxHash: outputTxHash,
@@ -324,13 +304,6 @@ async function handleMppPoll(
           finalCompletionAttemptId: attempt.id,
           failureReason: `Exhausted ${MAX_COMPLETION_ATTEMPTS} completion attempts`,
         });
-        logEvent({
-          type: "payment.failed",
-          providerUrl: payment.originalRequest.url,
-          paymentId,
-          daimoSessionId: payment.daimoSessionId,
-          metadata: { reason: `Exhausted ${MAX_COMPLETION_ATTEMPTS} completion attempts` },
-        });
         return json({
           status: "failed",
           error: `Exhausted ${MAX_COMPLETION_ATTEMPTS} completion attempts`,
@@ -345,13 +318,11 @@ async function handleMppPoll(
       });
     }
 
-    // Got a response
+    // Parse replay response
     const durationMs = Date.now() - startMs;
     const responseBody = await replayRes.text();
     const responseHeaders: Record<string, string> = {};
-    replayRes.headers.forEach((v, k) => {
-      responseHeaders[k] = v;
-    });
+    replayRes.headers.forEach((v, k) => { responseHeaders[k] = v; });
 
     const isSuccess = replayRes.status >= 200 && replayRes.status < 300;
 
@@ -377,32 +348,16 @@ async function handleMppPoll(
         status: "succeeded",
         finalCompletionAttemptId: attempt.id,
       });
-      logEvent({
-        type: "payment.succeeded",
-        providerUrl: payment.originalRequest.url,
-        paymentId,
-        daimoSessionId: payment.daimoSessionId,
-      });
-      return json({
-        status: "succeeded",
-        response: { status: replayRes.status, body },
-      });
+      return json({ status: "succeeded", response: { status: replayRes.status, body } });
     }
 
-    // Non-2xx response
+    // Non-2xx: retry or exhaust
     const n = priorAttempts.length + 1;
     if (n >= MAX_COMPLETION_ATTEMPTS) {
       await updateMppPayment(paymentId, {
         status: "failed",
         finalCompletionAttemptId: attempt.id,
         failureReason: `Exhausted ${MAX_COMPLETION_ATTEMPTS} completion attempts`,
-      });
-      logEvent({
-        type: "payment.failed",
-        providerUrl: payment.originalRequest.url,
-        paymentId,
-        daimoSessionId: payment.daimoSessionId,
-        metadata: { reason: `Exhausted ${MAX_COMPLETION_ATTEMPTS} completion attempts` },
       });
       return json({
         status: "failed",
@@ -419,7 +374,6 @@ async function handleMppPoll(
     });
   }
 
-  // Unknown Daimo status
   return json({ status: "pending", nextPollWaitS: 2 });
 }
 

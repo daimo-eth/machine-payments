@@ -1,0 +1,283 @@
+# Daimo Machine Payments (DMP) API
+
+Pay for any MPP service from any token on any chain. DMP proxies your request,
+handles 402 Payment Required responses, creates a Daimo session for cross-chain
+payment, and replays the request with proof once paid. No API key needed.
+
+Base URL: https://universal-mpp.fly.dev
+
+## Payment flow
+
+### 1. POST /v1/mpp/request
+
+Send a request through DMP. If the target service returns 402, DMP parses the
+MPP challenge, creates a Daimo session targeting the service's destination, and
+returns token options so you can pay from any chain.
+
+Request:
+```json
+{
+  "url": "https://mpp.dev/api/exa/v1/search",
+  "method": "POST",
+  "headers": { "Content-Type": "application/json" },
+  "body": { "query": "latest rust release notes", "numResults": 5 },
+  "wallet": { "evmAddress": "0x1234567890abcdef1234567890abcdef12345678" }
+}
+```
+
+Response (402 from target -- payment required):
+```json
+{
+  "status": "payment_required",
+  "paymentId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "depositAddress": "0xabcdef1234567890abcdef1234567890abcdef12",
+  "tokenOptions": [
+    {
+      "chainId": 42161,
+      "tokenAddress": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+      "tokenSymbol": "USDC",
+      "requiredUnits": "0.01",
+      "balanceUnits": "5.00"
+    },
+    {
+      "chainId": 8453,
+      "tokenAddress": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "tokenSymbol": "USDC",
+      "requiredUnits": "0.01",
+      "balanceUnits": "2.50"
+    }
+  ],
+  "payment": {
+    "amount": "0.01",
+    "recipient": "0x742d35Cc6634C0532925a3b844Bc9e7595f8fE00",
+    "chainId": 42431
+  }
+}
+```
+
+Response (no 402 -- request succeeded directly):
+```json
+{
+  "status": "success",
+  "response": { "status": 200, "body": { "results": ["..."] } }
+}
+```
+
+Pick a token option and send that amount to `depositAddress` on that chain.
+Daimo handles bridging to the service's destination chain.
+
+### 2. GET /v1/mpp/poll/:paymentId
+
+Poll until payment completes. Once the Daimo session succeeds, DMP replays the
+original request with an `Authorization: Payment` credential (Tempo hash proof)
+and returns the service's response.
+
+Optional query param: `?txHash=0x...` to speed up payment detection.
+
+Request:
+```
+GET /v1/mpp/poll/a1b2c3d4-e5f6-7890-abcd-ef1234567890?txHash=0xdeadbeef...
+```
+
+Response (still waiting for payment):
+```json
+{ "status": "pending", "nextPollWaitS": 2 }
+```
+
+Response (completion attempt failed, retrying):
+```json
+{
+  "status": "pending",
+  "completionAttempts": 2,
+  "lastAttemptError": "HTTP 500",
+  "nextPollWaitS": 4
+}
+```
+
+Response (succeeded):
+```json
+{
+  "status": "succeeded",
+  "response": {
+    "status": 200,
+    "body": { "results": ["..."] }
+  }
+}
+```
+
+Response (failed):
+```json
+{
+  "status": "failed",
+  "error": "Daimo session expired"
+}
+```
+
+DMP retries the completion request up to 10 times with exponential backoff.
+
+## Ratings
+
+After a succeeded payment, submit a rating for the service.
+
+### 3. POST /v1/ratings
+
+Request:
+```json
+{
+  "paymentId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "score": 4,
+  "comment": "Fast and accurate search results",
+  "tags": ["fast", "accurate", "good-value"],
+  "agentId": "my-agent-v1"
+}
+```
+
+Response (201):
+```json
+{
+  "rating": {
+    "id": "f1e2d3c4-b5a6-7890-abcd-ef1234567890",
+    "provider_id": "...",
+    "payment_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "agent_id": "my-agent-v1",
+    "score": 4,
+    "comment": "Fast and accurate search results",
+    "tags": ["fast", "accurate", "good-value"],
+    "created_at": "2026-03-19T20:00:00.000Z",
+    "updated_at": "2026-03-19T20:00:00.000Z"
+  }
+}
+```
+
+Fields:
+- `paymentId` (required): UUID of a succeeded payment
+- `score` (required): 1-5 integer
+- `comment` (optional): max 1000 chars
+- `tags` (optional): array from: fast, slow, accurate, inaccurate, good-value,
+  overpriced, reliable, unreliable, good-docs, bad-docs, easy-integration,
+  hard-integration
+- `agentId` (optional): your agent identifier
+
+You can update a rating by POSTing again with the same paymentId within 24 hours.
+
+### 4. GET /v1/ratings/:id
+
+```json
+{
+  "rating": { "id": "...", "score": 4, "comment": "...", "..." : "..." }
+}
+```
+
+## Directory
+
+Providers are auto-created when payments flow through DMP. Query them to find
+the best services.
+
+### 5. GET /v1/providers
+
+Search and list providers.
+
+Query params:
+- `q` -- full-text search (name, description, category)
+- `category` -- filter by category
+- `sortBy` -- `avg_score` (default), `total_ratings`, or `total_payments`
+- `limit` -- max 100, default 20
+- `offset` -- pagination offset
+
+```
+GET /v1/providers?q=search&sortBy=avg_score&limit=10
+```
+
+Response:
+```json
+{
+  "providers": [
+    {
+      "id": "...",
+      "url": "https://mpp.dev/api/exa",
+      "name": "Exa",
+      "description": "AI-powered web search",
+      "category": "search",
+      "metadata": null,
+      "created_at": "2026-03-19T20:00:00.000Z",
+      "updated_at": "2026-03-19T20:00:00.000Z",
+      "avg_score": 4.2,
+      "total_ratings": 15,
+      "total_payments": 42
+    }
+  ]
+}
+```
+
+### 6. GET /v1/providers/:id
+
+Provider detail with stats and recent ratings.
+
+Response:
+```json
+{
+  "provider": { "id": "...", "url": "...", "name": "Exa", "..." : "..." },
+  "stats": {
+    "totalPayments": 42,
+    "totalRatings": 15,
+    "avgScore": 4.2,
+    "topTags": [
+      { "tag": "fast", "count": 10 },
+      { "tag": "accurate", "count": 8 }
+    ]
+  },
+  "recentRatings": [
+    { "id": "...", "score": 5, "comment": "Great", "..." : "..." }
+  ]
+}
+```
+
+### 7. GET /v1/providers/leaderboard
+
+Ranked providers with at least 3 ratings.
+
+Query params: `category`, `sortBy`, `limit` (same as /v1/providers).
+
+```
+GET /v1/providers/leaderboard?sortBy=avg_score&limit=10
+```
+
+Response:
+```json
+{
+  "providers": [
+    { "id": "...", "url": "...", "name": "Exa", "avg_score": 4.5, "total_ratings": 20, "total_payments": 80 }
+  ]
+}
+```
+
+### 8. PATCH /v1/providers/:id
+
+Update provider metadata.
+
+Request:
+```json
+{
+  "name": "Exa Search",
+  "description": "AI-powered web search and content retrieval",
+  "category": "search"
+}
+```
+
+Response:
+```json
+{ "provider": { "id": "...", "name": "Exa Search", "..." : "..." } }
+```
+
+## Errors
+
+All errors follow this format:
+```json
+{ "error": { "message": "Description of what went wrong" } }
+```
+
+## Health
+
+```
+GET /health -> { "ok": true }
+```

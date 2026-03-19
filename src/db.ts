@@ -1,4 +1,4 @@
-/** Postgres connection and migrations. */
+/** Postgres connection and schema. All tables defined here. */
 
 import postgres from "postgres";
 
@@ -8,7 +8,10 @@ if (!DATABASE_URL) throw new Error("DATABASE_URL env var is required");
 const sql = postgres(DATABASE_URL);
 export default sql;
 
+/** Create all tables if they don't exist. No migration system -- just idempotent DDL. */
 export async function migrate() {
+  // -- Payment proxy tables --
+
   await sql`
     CREATE TABLE IF NOT EXISTS mpp_payments (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -43,5 +46,76 @@ export async function migrate() {
       error TEXT,
       duration_ms INT
     )
+  `;
+
+  // -- Directory tables --
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS mpp_providers (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      url TEXT UNIQUE NOT NULL,
+      name TEXT,
+      description TEXT,
+      category TEXT,
+      metadata JSONB,
+      search_vector TSVECTOR,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_mpp_providers_search
+    ON mpp_providers USING GIN (search_vector)
+  `;
+
+  // Auto-update search_vector on insert/update
+  await sql`
+    CREATE OR REPLACE FUNCTION mpp_providers_search_update() RETURNS trigger AS $$
+    BEGIN
+      NEW.search_vector := to_tsvector('english',
+        coalesce(NEW.name, '') || ' ' ||
+        coalesce(NEW.description, '') || ' ' ||
+        coalesce(NEW.category, '')
+      );
+      RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql
+  `;
+
+  await sql`
+    DROP TRIGGER IF EXISTS mpp_providers_search_trigger ON mpp_providers
+  `;
+
+  await sql`
+    CREATE TRIGGER mpp_providers_search_trigger
+    BEFORE INSERT OR UPDATE ON mpp_providers
+    FOR EACH ROW EXECUTE FUNCTION mpp_providers_search_update()
+  `;
+
+  // -- Rating tables --
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS mpp_ratings (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      provider_id UUID NOT NULL REFERENCES mpp_providers(id),
+      payment_id UUID UNIQUE NOT NULL REFERENCES mpp_payments(id),
+      agent_id TEXT,
+      score INT NOT NULL CHECK (score BETWEEN 1 AND 5),
+      comment TEXT,
+      tags JSONB,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_mpp_ratings_provider_id
+    ON mpp_ratings(provider_id)
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_mpp_ratings_created_at
+    ON mpp_ratings(created_at)
   `;
 }

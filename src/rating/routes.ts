@@ -1,4 +1,4 @@
-/** HTTP route handler for rating system. */
+/** HTTP route handler for ratings and directory. */
 
 import { createRating, getRating } from "./ratings";
 import {
@@ -9,7 +9,6 @@ import {
   getLeaderboard,
   updateProvider,
 } from "./providers";
-import { queryEvents } from "./events";
 
 function json(data: unknown, status = 200) {
   return Response.json(data, { status });
@@ -19,11 +18,12 @@ function err(message: string, status = 400) {
   return json({ error: { message } }, status);
 }
 
+/** Match rating and directory routes. Returns null if no match. */
 export async function handleRatingRoute(
   req: Request,
   url: URL
 ): Promise<Response | null> {
-  // POST /v1/ratings
+  // POST /v1/ratings -- submit or update a rating
   if (req.method === "POST" && url.pathname === "/v1/ratings") {
     let body: any;
     try {
@@ -34,75 +34,64 @@ export async function handleRatingRoute(
 
     const result = await createRating({
       paymentId: body.paymentId,
-      overall: body.overall,
-      speed: body.speed,
-      quality: body.quality,
-      value: body.value,
-      reliability: body.reliability,
+      score: body.score,
       comment: body.comment,
       tags: body.tags,
-      useCase: body.useCase,
       agentId: body.agentId,
     });
 
-    if ("error" in result) {
-      return err(result.error, result.status);
-    }
+    if ("error" in result) return err(result.error, result.status);
     return json({ rating: result.rating }, 201);
   }
 
-  // GET /v1/ratings/:id
+  // GET /v1/ratings/:id -- get a single rating
   if (req.method === "GET" && url.pathname.startsWith("/v1/ratings/")) {
     const id = url.pathname.slice("/v1/ratings/".length);
     if (!id) return err("Rating ID required", 400);
-    const rating = getRating(id);
+    const rating = await getRating(id);
     if (!rating) return err("Rating not found", 404);
     return json({ rating });
   }
 
-  // GET /v1/providers/leaderboard (must be before /v1/providers/:id)
+  // GET /v1/providers/leaderboard -- ranked providers (min 3 ratings)
   if (req.method === "GET" && url.pathname === "/v1/providers/leaderboard") {
-    const category = url.searchParams.get("category") ?? undefined;
-    const sortBy = url.searchParams.get("sortBy") ?? undefined;
-    const limit = url.searchParams.get("limit")
-      ? parseInt(url.searchParams.get("limit")!)
-      : undefined;
-
-    const providers = getLeaderboard({ category, sortBy, limit });
+    const providers = await getLeaderboard({
+      category: url.searchParams.get("category") ?? undefined,
+      sortBy: url.searchParams.get("sortBy") ?? undefined,
+      limit: url.searchParams.get("limit") ? parseInt(url.searchParams.get("limit")!) : undefined,
+    });
     return json({ providers });
   }
 
-  // GET /v1/providers/:id
+  // GET /v1/providers/:id -- provider detail with stats and recent ratings
   if (req.method === "GET" && url.pathname.startsWith("/v1/providers/")) {
     const id = url.pathname.slice("/v1/providers/".length);
     if (!id) return err("Provider ID required", 400);
 
-    const provider = getProvider(id);
+    const provider = await getProvider(id);
     if (!provider) return err("Provider not found", 404);
 
-    const stats = getProviderStats(id);
-    const recentRatings = getRecentRatings(id);
+    const [stats, recentRatings] = await Promise.all([
+      getProviderStats(id),
+      getRecentRatings(id),
+    ]);
 
     return json({ provider, stats, recentRatings });
   }
 
-  // GET /v1/providers
+  // GET /v1/providers -- list/search providers
   if (req.method === "GET" && url.pathname === "/v1/providers") {
-    const q = url.searchParams.get("q") ?? undefined;
-    const category = url.searchParams.get("category") ?? undefined;
-    const sortBy = url.searchParams.get("sortBy") ?? undefined;
-    const limit = url.searchParams.get("limit")
-      ? parseInt(url.searchParams.get("limit")!)
-      : undefined;
-    const offset = url.searchParams.get("offset")
-      ? parseInt(url.searchParams.get("offset")!)
-      : undefined;
-
-    const result = listProviders({ q, category, sortBy, limit, offset });
+    const result = await listProviders({
+      q: url.searchParams.get("q") ?? undefined,
+      category: url.searchParams.get("category") ?? undefined,
+      sortBy: url.searchParams.get("sortBy") ?? undefined,
+      limit: url.searchParams.get("limit") ? parseInt(url.searchParams.get("limit")!) : undefined,
+      offset: url.searchParams.get("offset") ? parseInt(url.searchParams.get("offset")!) : undefined,
+    });
     return json(result);
   }
 
-  // PATCH /v1/providers/:id
+  // PATCH /v1/providers/:id -- update provider metadata
   if (req.method === "PATCH" && url.pathname.startsWith("/v1/providers/")) {
     const id = url.pathname.slice("/v1/providers/".length);
     if (!id) return err("Provider ID required", 400);
@@ -114,7 +103,7 @@ export async function handleRatingRoute(
       return err("Invalid JSON body");
     }
 
-    const updated = updateProvider(id, {
+    const updated = await updateProvider(id, {
       name: body.name,
       description: body.description,
       category: body.category,
@@ -125,21 +114,5 @@ export async function handleRatingRoute(
     return json({ provider: updated });
   }
 
-  // GET /v1/events
-  if (req.method === "GET" && url.pathname === "/v1/events") {
-    const type = url.searchParams.get("type") ?? undefined;
-    const providerUrl = url.searchParams.get("providerUrl") ?? undefined;
-    const since = url.searchParams.get("since")
-      ? parseInt(url.searchParams.get("since")!)
-      : undefined;
-    const limit = url.searchParams.get("limit")
-      ? parseInt(url.searchParams.get("limit")!)
-      : undefined;
-
-    const events = queryEvents({ type, providerUrl, since, limit });
-    return json({ events });
-  }
-
-  // Not a rating route
   return null;
 }

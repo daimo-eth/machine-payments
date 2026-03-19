@@ -1,66 +1,59 @@
-/** Rating system types. */
+/** Types for the directory and rating system. */
 
+/** An MPP service provider, auto-created when payments flow through DMP. */
 export type Provider = {
+  /** Unique identifier. */
   id: string;
+  /** Canonical service URL (protocol + host, or host + first path segment for shared hosts). */
   url: string;
+  /** Human-readable name. */
   name: string | null;
+  /** Short description of the service. */
   description: string | null;
+  /** Service category (e.g. "search", "ai", "data"). */
   category: string | null;
-  mpp_intents: string; // JSON array
-  metadata: string | null; // JSON blob
-  created_at: number;
-  updated_at: number;
+  /** Arbitrary metadata. */
+  metadata: Record<string, unknown> | null;
+  created_at: Date;
+  updated_at: Date;
 };
 
+/** An agent's rating of a service, linked to a specific succeeded payment. */
 export type Rating = {
+  /** Unique identifier. */
   id: string;
+  /** Provider this rating is for. */
   provider_id: string;
+  /** Payment this rating is linked to (one rating per payment). */
   payment_id: string;
-  daimo_session_id: string;
+  /** Optional agent identifier. */
   agent_id: string | null;
-  overall_score: number;
-  speed_score: number | null;
-  quality_score: number | null;
-  value_score: number | null;
-  reliability_score: number | null;
+  /** Overall score, 1-5. */
+  score: number;
+  /** Free-text comment, max 1000 chars. */
   comment: string | null;
-  tags: string | null; // JSON array
-  use_case: string | null;
-  amount_paid: string | null;
-  mpp_intent: string | null;
-  created_at: number;
-  updated_at: number;
+  /** Structured tags (e.g. ["fast", "accurate"]). */
+  tags: string[] | null;
+  created_at: Date;
+  updated_at: Date;
 };
 
-export type Event = {
-  id: string;
-  type: string;
-  provider_url: string | null;
-  payment_id: string | null;
-  daimo_session_id: string | null;
-  agent_wallet: string | null;
-  amount: string | null;
-  metadata: string | null; // JSON blob
-  created_at: number;
-};
-
-export type EventType =
-  | "payment.initiated"
-  | "payment.succeeded"
-  | "payment.failed"
-  | "rating.submitted";
-
+/** Aggregated stats for a provider. */
 export type ProviderStats = {
   totalPayments: number;
   totalRatings: number;
-  avgOverall: number | null;
-  avgSpeed: number | null;
-  avgQuality: number | null;
-  avgValue: number | null;
-  avgReliability: number | null;
+  avgScore: number | null;
   topTags: { tag: string; count: number }[];
 };
 
+/** Provider with aggregated directory stats. */
+export type ProviderWithStats = Provider & {
+  avg_score: number | null;
+  total_ratings: number;
+  total_payments: number;
+};
+
+/** Valid tags for ratings. */
 export const VALID_TAGS = [
   "fast",
   "slow",
