@@ -3,8 +3,7 @@
 import * as daimo from "./daimo";
 import { migrate } from "./db";
 import {
-  parseMppChallenges,
-  decodeMppRequest,
+  validateMpp402,
   buildMppCredential,
   atomicToUnits,
 } from "./mpp";
@@ -84,25 +83,19 @@ async function handleMppRequest(req: Request): Promise<Response> {
     return json({ status: "success", response: { status: targetRes.status, body } });
   }
 
-  // 3. Parse MPP 402 challenge
+  // 3. Parse and validate MPP 402 challenge (only charge intent supported)
   const authHeader = targetRes.headers.get("www-authenticate");
   if (!authHeader) {
     return error("402 response has no WWW-Authenticate header", 502);
   }
 
-  const challenges = parseMppChallenges(authHeader);
-  if (challenges.length === 0) {
-    return error("No tempo Payment challenge found in 402 response", 502);
+  const validated = validateMpp402(authHeader);
+  if ("error" in validated) {
+    return error(validated.error, 502);
   }
 
-  const challenge = challenges[0];
-  const mppReq = decodeMppRequest(challenge);
-
-  // 4. Determine destination from MPP challenge
-  const chainId = mppReq.methodDetails?.chainId;
-  if (!chainId) {
-    return error("MPP challenge missing methodDetails.chainId", 502);
-  }
+  const { challenge, request: mppReq } = validated;
+  const chainId = mppReq.methodDetails!.chainId;
 
   // Daimo sessions have a $0.25 minimum. Clamp up for micro-payments.
   const rawAmount = atomicToUnits(mppReq.amount);

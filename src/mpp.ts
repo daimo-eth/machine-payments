@@ -94,6 +94,43 @@ export function decodeMppRequest(challenge: MppChallenge): MppRequest {
   return JSON.parse(json) as MppRequest;
 }
 
+/** Supported MPP intents. Session intent requires escrow channels (not yet supported). */
+const SUPPORTED_INTENTS = ["charge"];
+
+/**
+ * Validate that an MPP 402 response is a supported charge-intent challenge.
+ * Returns the parsed challenge and request, or an error string.
+ */
+export function validateMpp402(authHeader: string): {
+  challenge: MppChallenge;
+  request: MppRequest;
+} | { error: string } {
+  const challenges = parseMppChallenges(authHeader);
+  if (challenges.length === 0) {
+    return { error: "No tempo Payment challenge found in 402 response" };
+  }
+
+  const challenge = challenges.find(c => SUPPORTED_INTENTS.includes(c.intent));
+  if (!challenge) {
+    const intents = challenges.map(c => c.intent).join(", ");
+    return { error: `Unsupported MPP intent(s): ${intents}. Supported: ${SUPPORTED_INTENTS.join(", ")}` };
+  }
+
+  const request = decodeMppRequest(challenge);
+
+  if (!request.methodDetails?.chainId) {
+    return { error: "MPP challenge missing methodDetails.chainId" };
+  }
+  if (!request.recipient) {
+    return { error: "MPP challenge missing recipient" };
+  }
+  if (!request.amount) {
+    return { error: "MPP challenge missing amount" };
+  }
+
+  return { challenge, request };
+}
+
 /** Build the Authorization: Payment header value using Tempo hash proof. */
 export function buildMppCredential(
   challenge: MppChallenge,
