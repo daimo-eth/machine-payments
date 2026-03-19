@@ -40,20 +40,24 @@ export async function getDashboardStats(range: TimeRange = "24h") {
   `;
 
   const txnSeries = await sql<{ cnt: number }[]>`
-    SELECT COUNT(*)::int as cnt
-    FROM mpp_payments
-    WHERE status = 'succeeded'
-    ${interval ? sql`AND created_at >= now() - ${interval}::interval` : sql``}
-    GROUP BY date_bin(${bucket}::interval, created_at, '2020-01-01'::timestamptz)
-    ORDER BY date_bin(${bucket}::interval, created_at, '2020-01-01'::timestamptz)
+    SELECT cnt FROM (
+      SELECT date_bin(${bucket}::interval, created_at, '2020-01-01'::timestamptz) as b,
+             COUNT(*)::int as cnt
+      FROM mpp_payments
+      WHERE status = 'succeeded'
+      ${interval ? sql`AND created_at >= now() - ${interval}::interval` : sql``}
+      GROUP BY b ORDER BY b
+    ) sub
   `;
 
   const ratingSeries = await sql<{ cnt: number }[]>`
-    SELECT COUNT(*)::int as cnt
-    FROM mpp_ratings
-    ${interval ? sql`WHERE created_at >= now() - ${interval}::interval` : sql``}
-    GROUP BY date_bin(${bucket}::interval, created_at, '2020-01-01'::timestamptz)
-    ORDER BY date_bin(${bucket}::interval, created_at, '2020-01-01'::timestamptz)
+    SELECT cnt FROM (
+      SELECT date_bin(${bucket}::interval, created_at, '2020-01-01'::timestamptz) as b,
+             COUNT(*)::int as cnt
+      FROM mpp_ratings
+      ${interval ? sql`WHERE created_at >= now() - ${interval}::interval` : sql``}
+      GROUP BY b ORDER BY b
+    ) sub
   `;
 
   const recentPayments = await sql<{
