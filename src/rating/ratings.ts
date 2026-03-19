@@ -1,7 +1,7 @@
 /** Rating CRUD + validation. */
 
 import { getDb } from "./db";
-import { getPayment } from "../store";
+import { getMppPayment } from "../store";
 import { ensureProvider, normalizeProviderUrl } from "./providers";
 import { logEvent } from "./events";
 import type { Rating } from "./schema";
@@ -30,9 +30,9 @@ function validateScore(v: unknown, name: string): string | null {
   return null;
 }
 
-export function createRating(
+export async function createRating(
   input: CreateRatingInput
-): { rating: Rating } | { error: string; status: number } {
+): Promise<{ rating: Rating } | { error: string; status: number }> {
   const db = getDb();
 
   // Validate overall score
@@ -67,7 +67,7 @@ export function createRating(
   }
 
   // Look up payment
-  const payment = getPayment(input.paymentId);
+  const payment = await getMppPayment(input.paymentId);
   if (!payment) {
     return { error: "Payment not found", status: 404 };
   }

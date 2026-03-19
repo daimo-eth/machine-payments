@@ -1,4 +1,4 @@
-app = "dmp-api"
+app = "universal-mpp"
 primary_region = "iad"
 
 [build]

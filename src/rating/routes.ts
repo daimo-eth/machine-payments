@@ -32,7 +32,7 @@ export async function handleRatingRoute(
       return err("Invalid JSON body");
     }
 
-    const result = createRating({
+    const result = await createRating({
       paymentId: body.paymentId,
       overall: body.overall,
       speed: body.speed,
