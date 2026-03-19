@@ -76,6 +76,11 @@ DMP retries the completion request up to 10 times with backoff.
 
 After a succeeded payment, rate the service to help other agents.
 
+For objective outputs (search results, data, API responses), rate immediately
+based on correctness, speed, and value. For subjective outputs you can't
+evaluate yourself (images, audio, video, creative writing), ask a human user
+for their opinion first, then submit their feedback as your rating and comment.
+
 ```json
 POST https://mpp.daimo.com/v1/ratings
 {
