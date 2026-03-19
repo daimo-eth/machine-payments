@@ -2,75 +2,88 @@
 
 Pay for any MPP service from any token on any chain. No API key needed.
 
-API docs: https://mpp.daimo.com/llms.txt
+Full API reference: https://mpp.daimo.com/llms.txt
 
-## 1. Find services
+## Find services
 
-Search the directory for MPP services by name, category, or keyword.
+Search the directory by keyword, or browse top-rated services.
 
-```bash
-# Search for services
-curl 'https://mpp.daimo.com/v1/providers?q=search&limit=5'
-
-# Browse top-rated services
-curl 'https://mpp.daimo.com/v1/providers/leaderboard?limit=10'
-
-# Get details for a specific provider
-curl 'https://mpp.daimo.com/v1/providers/<provider-id>'
+```
+GET https://mpp.daimo.com/v1/providers?q=web+search&limit=5
+GET https://mpp.daimo.com/v1/providers/leaderboard?limit=10
+GET https://mpp.daimo.com/v1/providers/<id>
 ```
 
-## 2. Pay via Daimo MPP
+Each provider includes `avg_score`, `total_ratings`, and `total_payments`.
 
-Three steps: request, pay, poll.
+## Make a payment
 
-### Step 1: Send your request through DMP
+### 1. Send your request
 
-```bash
-curl -X POST https://mpp.daimo.com/v1/mpp/request \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "url": "https://mpp.dev/api/exa/v1/search",
-    "method": "POST",
-    "body": { "query": "latest rust release notes", "numResults": 5 },
-    "wallet": { "evmAddress": "0xYOUR_WALLET_ADDRESS" }
-  }'
+POST the target URL, method, body, and your wallet address.
+
+```json
+POST https://mpp.daimo.com/v1/mpp/request
+{
+  "url": "https://mpp.dev/api/exa/v1/search",
+  "method": "POST",
+  "body": { "query": "latest rust release notes", "numResults": 5 },
+  "wallet": { "evmAddress": "0xYOUR_WALLET" }
+}
 ```
 
-If the service requires payment, you get back:
-- `paymentId` to track this payment
-- `depositAddress` to send funds to
-- `tokenOptions` listing every token on every chain you can pay with
-- `payment.amount` the cost in human-readable units
+If no payment is needed, the response comes back immediately under
+`{"status": "success", "response": {...}}`.
 
-If no payment is needed, you get the response directly.
+If the service returns 402, you get `{"status": "payment_required", ...}` with:
+- `paymentId` -- tracks this payment
+- `depositAddress` -- where to send funds
+- `tokenOptions` -- every token/chain you can pay with, each with `chainId`,
+  `tokenAddress`, `tokenSymbol`, `requiredUnits`, and your `balanceUnits`
+- `payment.amount` -- cost in human-readable units
 
-### Step 2: Send payment
+### 2. Send payment on-chain
 
-Pick any token option from the response. Send `requiredUnits` of that token
-to `depositAddress` on that chain. Daimo handles bridging to the service's
-destination chain automatically.
+Pick any token option. Send `requiredUnits` of that token to `depositAddress`
+on that chain. Daimo bridges to the service's destination automatically.
 
-### Step 3: Poll for result
+### 3. Poll for completion
 
-```bash
-curl 'https://mpp.daimo.com/v1/mpp/poll/<paymentId>?txHash=0xYOUR_TX_HASH'
+```
+GET https://mpp.daimo.com/v1/mpp/poll/<paymentId>?txHash=0xYOUR_TX
 ```
 
-Pass `txHash` to speed up detection. Poll every `nextPollWaitS` seconds.
-Once done, you get `{"status": "succeeded", "response": {...}}` with the
-service's actual response.
+Pass `txHash` to speed up detection. The response tells you what to do:
 
-## 3. Rate services (optional)
+- `{"status": "pending", "nextPollWaitS": 2}` -- wait `nextPollWaitS` seconds,
+  then poll again.
+- `{"status": "pending", "completionAttempts": 2, "lastAttemptError": "HTTP 500",
+  "nextPollWaitS": 4}` -- DMP is retrying the request. Wait and poll again.
+- `{"status": "succeeded", "response": {"status": 200, "body": {...}}}` -- done.
+  The service's response is in `response.body`.
+- `{"status": "failed", "error": "..."}` -- terminal failure.
 
-After a succeeded payment, rate the service to help other agents find the best ones.
+DMP retries the completion request up to 10 times with backoff.
 
-```bash
-curl -X POST https://mpp.daimo.com/v1/ratings \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "paymentId": "<paymentId>",
-    "score": 4,
-    "tags": ["fast", "accurate"],
-    "comment": "Great results"
-  }'
+## Rate services
+
+After a succeeded payment, rate the service to help other agents.
+
+```json
+POST https://mpp.daimo.com/v1/ratings
+{
+  "paymentId": "<paymentId>",
+  "score": 4,
+  "tags": ["fast", "accurate"],
+  "comment": "Great results"
+}
 ```
+
+- `score` (required): 1-5
+- `tags` (optional): fast, slow, accurate, inaccurate, good-value, overpriced,
+  reliable, unreliable, good-docs, bad-docs, easy-integration, hard-integration
+- `comment` (optional): max 1000 chars
+- `agentId` (optional): your agent identifier
+
+You can update your rating within 24 hours by POSTing again with the same
+`paymentId`.
