@@ -16,3 +16,8 @@ bun build --target=bun src/index.ts           # build
 ```
 
 Deploys to Fly.io on push to `master`.
+
+## Scope
+
+Supports MPP `charge` intent (one-time payments). Does not yet support MPP
+`session` intent (streaming payment channels) or x402.

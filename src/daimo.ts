@@ -114,7 +114,7 @@ export async function getTokenOptions(
 
   const res = await fetch(
     `${DAIMO_API_URL}/v1/sessions/${sessionId}/tokenOptions?${params}`,
-    { method: "GET" }
+    { method: "GET", headers: { Authorization: `Bearer ${getApiKey()}` } }
   );
   if (!res.ok) {
     const err = await res.text();
