@@ -104,7 +104,9 @@ async function handleMppRequest(req: Request): Promise<Response> {
     return error("MPP challenge missing methodDetails.chainId", 502);
   }
 
-  const amountUnits = atomicToUnits(mppReq.amount);
+  // Daimo sessions have a $0.25 minimum. Clamp up for micro-payments.
+  const rawAmount = atomicToUnits(mppReq.amount);
+  const amountUnits = Math.max(parseFloat(rawAmount), 0.25).toFixed(2);
 
   // 5. Create Daimo session targeting the MPP destination
   let session: daimo.DaimoSession;
