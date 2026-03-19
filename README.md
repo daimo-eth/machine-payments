@@ -1,3 +1,8 @@
+# Daimo Machine Payments
+
+Humans: https://mpp.daimo.com
+Clankers: https://mpp.daimo.com/SKILL.md
+
 ## Plan
 
 ### 1. Daimo Machine Payments (DMP) API
