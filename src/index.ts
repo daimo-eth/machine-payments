@@ -122,10 +122,11 @@ async function handleMppRequest(req: Request): Promise<Response> {
   }
 
   // 6. Create EVM payment method to get deposit address
+  const clientSecret = session.clientSecret;
   try {
     session = await daimo.createPaymentMethod(
       session.sessionId,
-      session.clientSecret
+      clientSecret
     );
   } catch (e) {
     return error(`Failed to create payment method: ${e}`, 502);
@@ -141,7 +142,7 @@ async function handleMppRequest(req: Request): Promise<Response> {
   try {
     tokenOptions = await daimo.getTokenOptions(
       session.sessionId,
-      session.clientSecret,
+      clientSecret,
       input.wallet
     );
   } catch (e) {
@@ -151,7 +152,7 @@ async function handleMppRequest(req: Request): Promise<Response> {
   // 8. Store payment + auto-create provider
   const payment = await createMppPayment({
     daimoSessionId: session.sessionId,
-    daimoClientSecret: session.clientSecret,
+    daimoClientSecret: clientSecret,
     originalRequest: {
       url: input.url,
       method: input.method,
