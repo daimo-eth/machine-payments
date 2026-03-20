@@ -34,7 +34,7 @@ export async function migrate() {
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       payment_id UUID NOT NULL REFERENCES mpp_payments(id),
       attempted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      delivery_tx_hash TEXT NOT NULL,
+      delivery_tx_hash TEXT,
       request_url TEXT NOT NULL,
       request_method TEXT NOT NULL,
       request_headers JSONB NOT NULL,

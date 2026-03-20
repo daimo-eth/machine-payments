@@ -103,7 +103,7 @@ export type CompletionAttempt = {
   id: string;
   paymentId: string;
   attemptedAt: Date;
-  deliveryTxHash: string;
+  deliveryTxHash?: string;
   requestUrl: string;
   requestMethod: string;
   requestHeaders: Record<string, string>;
@@ -138,7 +138,7 @@ function toAttempt(r: AttemptRow): CompletionAttempt {
     id: r.id,
     paymentId: r.payment_id,
     attemptedAt: r.attempted_at,
-    deliveryTxHash: r.delivery_tx_hash,
+    deliveryTxHash: r.delivery_tx_hash ?? undefined,
     requestUrl: r.request_url,
     requestMethod: r.request_method,
     requestHeaders: r.request_headers,
@@ -162,7 +162,7 @@ export async function createCompletionAttempt(
       response_status, response_headers, response_body,
       outcome, error, duration_ms
     ) VALUES (
-      ${init.paymentId}, ${init.deliveryTxHash},
+      ${init.paymentId}, ${init.deliveryTxHash ?? null},
       ${init.requestUrl}, ${init.requestMethod},
       ${sql.json(init.requestHeaders)}, ${init.requestBody ?? null},
       ${init.responseStatus ?? null},
@@ -184,13 +184,12 @@ export async function getCompletionAttempt(
   return row ? toAttempt(row) : null;
 }
 
-export async function getCompletionAttempts(
+export async function countCompletionAttempts(
   paymentId: string
-): Promise<CompletionAttempt[]> {
-  const rows = await sql<AttemptRow[]>`
-    SELECT * FROM mpp_completion_attempts
+): Promise<number> {
+  const [row] = await sql<{ count: string }[]>`
+    SELECT count(*) FROM mpp_completion_attempts
     WHERE payment_id = ${paymentId}
-    ORDER BY attempted_at ASC
   `;
-  return rows.map(toAttempt);
+  return Number(row.count);
 }

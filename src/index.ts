@@ -11,6 +11,7 @@ import {
   updateMppPayment,
   createCompletionAttempt,
   getCompletionAttempt,
+  countCompletionAttempts,
 } from "./store";
 import { parseMppCredential } from "./mpp";
 
@@ -27,18 +28,21 @@ function error(message: string, status = 400) {
 /** Headers to strip when proxying (hop-by-hop or problematic). */
 const STRIP_HEADERS = new Set(["host", "connection", "transfer-encoding", "content-length"]);
 
+/** Strip hop-by-hop headers from a Headers object. */
+function stripHeaders(headers: Headers): Headers {
+  const filtered = new Headers();
+  headers.forEach((v, k) => {
+    if (!STRIP_HEADERS.has(k.toLowerCase())) filtered.set(k, v);
+  });
+  return filtered;
+}
+
 /** Forward a request to the target service, pass through all headers both ways. */
 async function handleProxy(req: Request, targetUrl: string): Promise<Response> {
   const startMs = Date.now();
   const hasCred = !!req.headers.get("authorization")?.startsWith("Payment ");
+  const fwdHeaders = stripHeaders(req.headers);
 
-  // Forward headers, stripping hop-by-hop
-  const fwdHeaders = new Headers();
-  req.headers.forEach((v, k) => {
-    if (!STRIP_HEADERS.has(k.toLowerCase())) fwdHeaders.set(k, v);
-  });
-
-  // Forward request to target
   let targetRes: Response;
   try {
     targetRes = await fetch(targetUrl, {
@@ -53,23 +57,15 @@ async function handleProxy(req: Request, targetUrl: string): Promise<Response> {
 
   const durationMs = Date.now() - startMs;
 
-  // Auto-create provider on first 402 (payment-gated = real MPP service)
   if (targetRes.status === 402) {
     ensureProvider(targetUrl).catch(() => {});
   }
 
-  // Log for observability
   logProxyRequest(targetUrl, req.method, hasCred, targetRes.status, durationMs);
-
-  // Pass through response with all headers
-  const resHeaders = new Headers();
-  targetRes.headers.forEach((v, k) => {
-    if (!STRIP_HEADERS.has(k.toLowerCase())) resHeaders.set(k, v);
-  });
 
   return new Response(targetRes.body, {
     status: targetRes.status,
-    headers: resHeaders,
+    headers: stripHeaders(targetRes.headers),
   });
 }
 
@@ -114,13 +110,16 @@ async function handleMppStart(req: Request): Promise<Response> {
   return json({ paymentId: payment.id });
 }
 
+const MAX_COMPLETION_ATTEMPTS = 5;
+const PROXY_TIMEOUT_MS = 60_000;
+
 /** Proxy a request using stored payment details. Updates payment on success. */
 async function handleMppProxy(req: Request, paymentId: string): Promise<Response> {
   const payment = await getMppPayment(paymentId);
   if (!payment) return error("Payment not found", 404);
 
-  // Return cached response for already-completed payments
-  if (payment.status === "succeeded" && payment.finalCompletionAttemptId) {
+  // Return cached response for completed (succeeded or failed) payments
+  if (payment.finalCompletionAttemptId) {
     const cached = await getCompletionAttempt(payment.finalCompletionAttemptId);
     if (cached?.responseStatus != null && cached.responseBody != null) {
       const headers = new Headers(
@@ -137,22 +136,69 @@ async function handleMppProxy(req: Request, paymentId: string): Promise<Response
   const startMs = Date.now();
   const authHeader = req.headers.get("authorization") ?? "";
   const hasCred = authHeader.startsWith("Payment ");
-
-  // Forward caller's headers (for auth), stripping hop-by-hop
-  const fwdHeaders = new Headers();
-  req.headers.forEach((v, k) => {
-    if (!STRIP_HEADERS.has(k.toLowerCase())) fwdHeaders.set(k, v);
-  });
-
+  const txHash = hasCred ? parseMppCredential(authHeader)?.txHash : undefined;
+  const fwdHeaders = stripHeaders(req.headers);
   const method = payment.originalRequest.method;
   const reqBody = req.method !== "GET" && req.method !== "HEAD" ? await req.blob() : undefined;
+  const reqBodyText = reqBody ? await new Blob([reqBody]).text() : undefined;
+  const reqHeadersObj = Object.fromEntries(fwdHeaders.entries());
+
+  // Helper: record attempt and maybe mark payment as failed
+  const recordAttempt = async (
+    outcome: "success" | "http_error" | "network_error" | "timeout",
+    resStatus?: number,
+    resHeaders?: Record<string, string>,
+    resBody?: string,
+    errMsg?: string
+  ) => {
+    const attempt = await createCompletionAttempt({
+      paymentId,
+      deliveryTxHash: txHash,
+      requestUrl: targetUrl,
+      requestMethod: method,
+      requestHeaders: reqHeadersObj,
+      requestBody: reqBodyText,
+      responseStatus: resStatus,
+      responseHeaders: resHeaders,
+      responseBody: resBody,
+      outcome,
+      error: errMsg,
+      durationMs: Date.now() - startMs,
+    });
+
+    if (outcome === "success") {
+      await updateMppPayment(paymentId, {
+        status: "succeeded",
+        outputTxHash: txHash,
+        finalCompletionAttemptId: attempt.id,
+      });
+    } else {
+      const count = await countCompletionAttempts(paymentId);
+      if (count >= MAX_COMPLETION_ATTEMPTS) {
+        await updateMppPayment(paymentId, {
+          status: "failed",
+          finalCompletionAttemptId: attempt.id,
+          failureReason: `${count} failed attempts. Last: ${errMsg ?? outcome}`,
+        });
+      }
+    }
+  };
 
   let targetRes: Response;
   try {
-    targetRes = await fetch(targetUrl, { method, headers: fwdHeaders, body: reqBody });
+    targetRes = await fetch(targetUrl, {
+      method,
+      headers: fwdHeaders,
+      body: reqBodyText ?? undefined,
+      signal: AbortSignal.timeout(PROXY_TIMEOUT_MS),
+    });
   } catch (e) {
-    logProxyRequest(targetUrl, method, hasCred, undefined, Date.now() - startMs, String(e));
-    return error(`Failed to reach ${targetUrl}: ${e}`, 502);
+    const isTimeout = e instanceof DOMException && e.name === "TimeoutError";
+    const outcome = isTimeout ? "timeout" as const : "network_error" as const;
+    const errMsg = isTimeout ? `Timed out after ${PROXY_TIMEOUT_MS}ms` : String(e);
+    logProxyRequest(targetUrl, method, hasCred, undefined, Date.now() - startMs, errMsg);
+    if (hasCred) recordAttempt(outcome, undefined, undefined, undefined, errMsg).catch(() => {});
+    return error(errMsg, isTimeout ? 504 : 502);
   }
 
   const durationMs = Date.now() - startMs;
@@ -163,47 +209,18 @@ async function handleMppProxy(req: Request, paymentId: string): Promise<Response
 
   logProxyRequest(targetUrl, method, hasCred, targetRes.status, durationMs);
 
-  // Pass through response, stripping hop-by-hop headers
-  const resHeaders = new Headers();
-  targetRes.headers.forEach((v, k) => {
-    if (!STRIP_HEADERS.has(k.toLowerCase())) resHeaders.set(k, v);
-  });
+  const resHeaders = stripHeaders(targetRes.headers);
 
-  // Update payment record on successful paid request, cache response
-  if (hasCred && targetRes.status < 400) {
-    const cred = parseMppCredential(authHeader);
-    if (cred) {
-      const resBody = await targetRes.text();
-      const resHeadersObj = Object.fromEntries(resHeaders.entries());
+  // Record completion attempt for paid requests
+  if (hasCred) {
+    const resBody = await targetRes.text();
+    const resHeadersObj = Object.fromEntries(resHeaders.entries());
+    const outcome = targetRes.status < 400 ? "success" as const : "http_error" as const;
+    const errMsg = outcome === "http_error" ? `HTTP ${targetRes.status}` : undefined;
 
-      // Store completion attempt and link to payment
-      createCompletionAttempt({
-        paymentId,
-        deliveryTxHash: cred.txHash,
-        requestUrl: targetUrl,
-        requestMethod: method,
-        requestHeaders: Object.fromEntries(fwdHeaders.entries()),
-        requestBody: reqBody ? await new Blob([reqBody]).text() : undefined,
-        responseStatus: targetRes.status,
-        responseHeaders: resHeadersObj,
-        responseBody: resBody,
-        outcome: "success",
-        durationMs,
-      })
-        .then((attempt) =>
-          updateMppPayment(paymentId, {
-            status: "succeeded",
-            outputTxHash: cred.txHash,
-            finalCompletionAttemptId: attempt.id,
-          })
-        )
-        .catch(() => {});
+    recordAttempt(outcome, targetRes.status, resHeadersObj, resBody, errMsg).catch(() => {});
 
-      return new Response(resBody, {
-        status: targetRes.status,
-        headers: resHeaders,
-      });
-    }
+    return new Response(resBody, { status: targetRes.status, headers: resHeaders });
   }
 
   return new Response(targetRes.body, { status: targetRes.status, headers: resHeaders });

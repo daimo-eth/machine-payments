@@ -14,6 +14,8 @@ export type Provider = {
   category: string | null;
   /** Arbitrary metadata. */
   metadata: Record<string, unknown> | null;
+  /** Service endpoints with pricing. */
+  endpoints: { path: string; method: string; price: string | null; intent: string | null; description: string | null }[] | null;
   created_at: Date;
   updated_at: Date;
 };

@@ -3,3 +3,4 @@ dist
 web/dist
 .env
 bun.lock
+.test

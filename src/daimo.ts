@@ -139,23 +139,3 @@ export async function retrieveSession(
   return data.session;
 }
 
-export async function checkSession(
-  sessionId: string,
-  clientSecret: string,
-  txHash?: string
-): Promise<DaimoSession> {
-  const res = await fetch(
-    `${DAIMO_API_URL}/v1/sessions/${sessionId}/check`,
-    {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clientSecret, ...(txHash ? { txHash } : {}) }),
-    }
-  );
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Daimo checkSession failed (${res.status}): ${err}`);
-  }
-  const data = (await res.json()) as { session: DaimoSession };
-  return data.session;
-}
