@@ -10,22 +10,9 @@ function timeAgo(ts: string): string {
   return `${Math.floor(h / 24)}d`;
 }
 
-function shortHost(url: string | null): string {
+function apiPath(url: string | null): string {
   if (!url) return "—";
-  try {
-    const h = new URL(url).hostname;
-    return h.replace(/^(www|api|mpp)\./, "");
-  } catch { return url; }
-}
-
-function shortAddr(addr: string | null): string {
-  if (!addr) return "";
-  return addr.slice(0, 6) + "..." + addr.slice(-4);
-}
-
-function shortTx(hash: string | null): string {
-  if (!hash) return "";
-  return hash.slice(0, 10) + "...";
+  try { return new URL(url).pathname; } catch { return "—"; }
 }
 
 /** Decode base64url MPP request to extract amount. */
@@ -51,6 +38,8 @@ function statusInfo(status: string): { label: string; cls: string } {
   }
 }
 
+const TEMPO_EXPLORER = "https://explorer.tempo.xyz/tx/";
+
 export function ActivityFeed({ payments }: { payments: RecentPayment[] }) {
   if (payments.length === 0) {
     return (
@@ -66,7 +55,7 @@ export function ActivityFeed({ payments }: { payments: RecentPayment[] }) {
       <div className="ticker-header">
         <span className="ticker-col ticker-col-status">Status</span>
         <span className="ticker-col ticker-col-service">Service</span>
-        <span className="ticker-col ticker-col-method">Method</span>
+        <span className="ticker-col ticker-col-path">Path</span>
         <span className="ticker-col ticker-col-amount">Amount</span>
         <span className="ticker-col ticker-col-desc">Description</span>
         <span className="ticker-col ticker-col-tx">Tx</span>
@@ -75,21 +64,24 @@ export function ActivityFeed({ payments }: { payments: RecentPayment[] }) {
       {payments.map((p, i) => {
         const { label, cls } = statusInfo(p.status);
         const amount = decodeAmount(p.challenge_request);
-        const host = shortHost(p.original_url);
-        const desc = p.challenge_description || "—";
-        const method = p.original_method?.toUpperCase() || "—";
-        const tx = p.output_tx_hash ? shortTx(p.output_tx_hash) : "—";
+        const path = apiPath(p.original_url);
 
         return (
           <div key={p.id} className="ticker-row" style={{ animationDelay: `${i * 25}ms` }}>
-            <span className={`ticker-col ticker-col-status`}>
+            <span className="ticker-col ticker-col-status">
               <span className={`ticker-badge ${cls}`}>{label}</span>
             </span>
-            <span className="ticker-col ticker-col-service">{p.provider_name || host}</span>
-            <span className="ticker-col ticker-col-method ticker-mono">{method}</span>
+            <span className="ticker-col ticker-col-service">{p.provider_name || "—"}</span>
+            <span className="ticker-col ticker-col-path ticker-mono" title={path}>{path}</span>
             <span className="ticker-col ticker-col-amount ticker-mono">{amount ?? "—"}</span>
-            <span className="ticker-col ticker-col-desc ticker-desc-text" title={desc}>{desc}</span>
-            <span className="ticker-col ticker-col-tx ticker-mono">{tx}</span>
+            <span className="ticker-col ticker-col-desc ticker-desc-text" title={p.challenge_description || ""}>{p.challenge_description || "—"}</span>
+            <span className="ticker-col ticker-col-tx ticker-mono">
+              {p.output_tx_hash ? (
+                <a href={`${TEMPO_EXPLORER}${p.output_tx_hash}`} target="_blank" rel="noopener noreferrer" className="ticker-tx-link" onClick={(e) => e.stopPropagation()}>
+                  {p.output_tx_hash.slice(0, 8)}...
+                </a>
+              ) : "—"}
+            </span>
             <span className="ticker-col ticker-col-time">{timeAgo(p.created_at)}</span>
           </div>
         );

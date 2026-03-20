@@ -465,11 +465,11 @@
 
 .ticker-col { flex-shrink: 0; }
 .ticker-col-status { width: 72px; }
-.ticker-col-service { width: 140px; font-weight: 500; color: var(--color-text); overflow: hidden; text-overflow: ellipsis; }
-.ticker-col-method { width: 56px; color: var(--color-text-muted); }
-.ticker-col-amount { width: 72px; color: var(--color-text); font-weight: 600; }
-.ticker-col-desc { flex: 1; min-width: 100px; overflow: hidden; text-overflow: ellipsis; color: var(--color-text-secondary); }
-.ticker-col-tx { width: 100px; color: var(--color-text-muted); }
+.ticker-col-service { width: 110px; font-weight: 500; color: var(--color-text); overflow: hidden; text-overflow: ellipsis; }
+.ticker-col-path { width: 180px; color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; }
+.ticker-col-amount { width: 64px; color: var(--color-text); font-weight: 600; }
+.ticker-col-desc { flex: 1; min-width: 80px; overflow: hidden; text-overflow: ellipsis; color: var(--color-text-secondary); }
+.ticker-col-tx { width: 90px; }
 .ticker-col-time { width: 40px; text-align: right; color: var(--color-text-muted); }
 
 .ticker-mono { font-variant-numeric: tabular-nums; }
@@ -488,6 +488,12 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
+
+.ticker-tx-link {
+  color: var(--color-text-muted);
+  text-decoration: none;
+}
+.ticker-tx-link:hover { color: var(--color-text); text-decoration: underline; }
 
 .ticker-badge.tk-paid { background: #1a2a1a; color: #6c6; }
 .ticker-badge.tk-pending { background: #1a1a2a; color: #88a; }
