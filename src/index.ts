@@ -2,6 +2,7 @@
 
 import sql from "./db";
 import { migrate } from "./db";
+import * as daimo from "./daimo";
 import { handleRatingRoute } from "./rating/routes";
 import { ensureProvider } from "./rating/providers";
 
@@ -75,6 +76,83 @@ function logProxyRequest(
   `.catch(() => {});
 }
 
+// -- Fund Tempo wallet via Daimo session: POST /v1/fund, GET /v1/fund/:sessionId --
+
+/** USDCe on Tempo. */
+const TEMPO_USDC = {
+  chainId: 4217,
+  tokenAddress: "0x20c000000000000000000000b9537d11c60e8b50",
+};
+
+/** Create a Daimo session to fund a Tempo address from any chain. */
+async function handleFund(req: Request): Promise<Response> {
+  let body: { tempoAddress: string; amount?: string; wallet: { evmAddress?: string; solanaAddress?: string } };
+  try {
+    body = await req.json();
+  } catch {
+    return error("Invalid JSON body");
+  }
+
+  if (!body.tempoAddress) return error("tempoAddress is required");
+  if (!body.wallet?.evmAddress && !body.wallet?.solanaAddress) {
+    return error("wallet.evmAddress or wallet.solanaAddress is required");
+  }
+
+  const amount = body.amount ?? "5.00";
+
+  let session: daimo.DaimoSession;
+  try {
+    session = await daimo.createSession({
+      address: body.tempoAddress,
+      chainId: TEMPO_USDC.chainId,
+      tokenAddress: TEMPO_USDC.tokenAddress,
+      amountUnits: amount,
+    });
+  } catch (e) {
+    return error(`Failed to create Daimo session: ${e}`, 502);
+  }
+
+  const clientSecret = session.clientSecret;
+  try {
+    session = await daimo.createPaymentMethod(session.sessionId, clientSecret);
+  } catch (e) {
+    return error(`Failed to create payment method: ${e}`, 502);
+  }
+
+  const depositAddress = session.paymentMethod?.receiverAddress;
+  if (!depositAddress) return error("No deposit address", 502);
+
+  let tokenOptions: daimo.TokenOption[];
+  try {
+    tokenOptions = await daimo.getTokenOptions(session.sessionId, clientSecret, body.wallet);
+  } catch (e) {
+    return error(`Failed to get token options: ${e}`, 502);
+  }
+
+  return json({
+    sessionId: session.sessionId,
+    depositAddress,
+    amount,
+    tokenOptions,
+  });
+}
+
+/** Poll a Daimo funding session. */
+async function handleFundPoll(sessionId: string): Promise<Response> {
+  try {
+    const session = await daimo.retrieveSession(sessionId);
+    if (session.status === "succeeded") {
+      return json({ status: "succeeded", delivery: session.destination.delivery });
+    }
+    if (session.status === "bounced" || session.status === "expired") {
+      return json({ status: "failed", error: `Session ${session.status}` }, 400);
+    }
+    return json({ status: "pending", nextPollWaitS: 2 });
+  } catch (e) {
+    return error(`Failed to check session: ${e}`, 502);
+  }
+}
+
 // -- Server --
 
 await migrate();
@@ -97,6 +175,15 @@ const server = Bun.serve({
       if (await file.exists()) {
         return new Response(file, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
       }
+    }
+
+    // Fund Tempo wallet from any chain
+    if (req.method === "POST" && url.pathname === "/v1/fund") {
+      return handleFund(req);
+    }
+    if (req.method === "GET" && url.pathname.startsWith("/v1/fund/")) {
+      const sessionId = url.pathname.slice("/v1/fund/".length);
+      return handleFundPoll(sessionId);
     }
 
     // Transparent MPP proxy: /proxy/<target_host>/<path>

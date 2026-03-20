@@ -14,7 +14,24 @@ curl -fsSL https://tempo.xyz/install | bash
 "$HOME/.tempo/bin/tempo" wallet -t whoami
 ```
 
-If your balance is 0, fund your wallet: `tempo wallet fund`
+If your balance is low, fund from any EVM wallet via DMP:
+
+```bash
+# 1. Get deposit address + token options
+curl -s -X POST https://mpp.daimo.com/v1/fund \
+  -H 'Content-Type: application/json' \
+  -d '{"tempoAddress": "YOUR_TEMPO_ADDR", "amount": "5.00", "wallet": {"evmAddress": "YOUR_EVM_WALLET"}}'
+
+# Response: { sessionId, depositAddress, amount, tokenOptions }
+# Pick a token option and send requiredUnits to depositAddress on that chain.
+
+# 2. Poll until funded
+curl -s https://mpp.daimo.com/v1/fund/<sessionId>
+# Response: { status: "pending" | "succeeded" | "failed" }
+```
+
+This bridges USDC (or any token) from any EVM chain to Tempo automatically.
+You can also use `tempo wallet fund` for interactive funding.
 
 ## Find services
 
