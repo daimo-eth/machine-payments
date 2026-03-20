@@ -6,8 +6,11 @@ function displayName(p: ProviderWithStats): string {
   try { return new URL(p.url).hostname; } catch { return p.url; }
 }
 
-function timeAgo(ts: number): string {
-  const s = Math.floor((Date.now() - ts) / 1000);
+function timeAgo(ts: string | number | null): string {
+  if (!ts) return "—";
+  const ms = typeof ts === "number" ? ts : new Date(ts).getTime();
+  if (isNaN(ms)) return "—";
+  const s = Math.floor((Date.now() - ms) / 1000);
   if (s < 60) return `${s}s ago`;
   const m = Math.floor(s / 60);
   if (m < 60) return `${m}m ago`;
