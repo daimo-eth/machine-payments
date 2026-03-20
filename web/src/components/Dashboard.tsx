@@ -133,10 +133,6 @@ export function Dashboard({ onSelectProvider }: { onSelectProvider: (id: string)
       </section>
 
       <section className="dash-section">
-        <Globe />
-      </section>
-
-      <section className="dash-section">
         <div className="dash-section-header">
           <h2 className="section-title">Servers</h2>
           <SearchBar value={query} onChange={setQuery} />
