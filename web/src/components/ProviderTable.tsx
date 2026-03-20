@@ -56,7 +56,7 @@ export function ProviderTable({
           </tr>
         </thead>
         <tbody>
-          {providers.map((p, i) => (
+          {[...providers].sort((a, b) => Number(b.avg_score ?? 0) - Number(a.avg_score ?? 0)).map((p, i) => (
             <tr
               key={p.id}
               className="provider-row"
