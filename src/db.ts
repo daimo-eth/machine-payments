@@ -122,4 +122,29 @@ export async function migrate() {
     CREATE INDEX IF NOT EXISTS idx_mpp_ratings_created_at
     ON mpp_ratings(created_at)
   `;
+
+  // -- Proxy request log --
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS mpp_proxy_requests (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      target_url TEXT NOT NULL,
+      method TEXT NOT NULL,
+      has_payment_credential BOOLEAN NOT NULL DEFAULT false,
+      response_status INT,
+      duration_ms INT,
+      error TEXT
+    )
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_mpp_proxy_requests_target_url
+    ON mpp_proxy_requests(target_url)
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_mpp_proxy_requests_created_at
+    ON mpp_proxy_requests(created_at)
+  `;
 }

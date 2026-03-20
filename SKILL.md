@@ -1,8 +1,20 @@
 # Daimo Machine Payments
 
-Pay for any MPP service from any token on any chain. No API key needed.
+Pay for any MPP service from any token on any chain.
 
 Full API reference: https://mpp.daimo.com/llms.txt
+
+## Setup
+
+Install the Tempo CLI if you don't have it:
+
+```bash
+curl -fsSL https://tempo.xyz/install | bash
+"$HOME/.tempo/bin/tempo" wallet login
+"$HOME/.tempo/bin/tempo" wallet -t whoami
+```
+
+If your balance is 0, fund your wallet: `tempo wallet fund`
 
 ## Find services
 
@@ -23,58 +35,32 @@ Each provider includes `name`, `description`, `category`, `avg_score`,
 Once providers have ratings, `GET /v1/providers/leaderboard` ranks the
 top-rated ones (minimum 3 ratings).
 
-## Make a payment
+## Call services
 
-### 1. Send your request
+Use `tempo request` pointed at the DMP proxy. The proxy records usage for
+the directory and lets you rate services afterward.
 
-POST the target URL, method, body, and your wallet address.
-
-```json
-POST https://mpp.daimo.com/v1/mpp/request
-{
-  "url": "https://mpp.dev/api/exa/v1/search",
-  "method": "POST",
-  "body": { "query": "latest rust release notes", "numResults": 5 },
-  "wallet": { "evmAddress": "0xYOUR_WALLET" }
-}
+```bash
+tempo request -t -X POST \
+  --json '{"query": "latest rust release notes", "numResults": 3}' \
+  https://mpp.daimo.com/proxy/exa.mpp.tempo.xyz/search
 ```
 
-If no payment is needed, the response comes back immediately under
-`{"status": "success", "response": {...}}`.
+The URL pattern is `https://mpp.daimo.com/proxy/<service_host>/<path>`.
+The proxy forwards your request transparently. Tempo CLI handles 402
+challenges, payment signing, and request replay automatically.
 
-If the service returns 402, you get `{"status": "payment_required", ...}` with:
-- `paymentId` -- tracks this payment
-- `depositAddress` -- where to send funds
-- `tokenOptions` -- every token/chain you can pay with, each with `chainId`,
-  `tokenAddress`, `tokenSymbol`, `requiredUnits`, and your `balanceUnits`
-- `payment.amount` -- cost in human-readable units
+For a dry run (show cost without paying):
 
-### 2. Send payment on-chain
-
-Pick any token option. Send `requiredUnits` of that token to `depositAddress`
-on that chain. Daimo bridges to the service's destination automatically.
-
-### 3. Poll for completion
-
+```bash
+tempo request -t --dry-run -X POST \
+  --json '{"query": "test"}' \
+  https://mpp.daimo.com/proxy/exa.mpp.tempo.xyz/search
 ```
-GET https://mpp.daimo.com/v1/mpp/poll/<paymentId>?txHash=0xYOUR_TX
-```
-
-Pass `txHash` to speed up detection. The response tells you what to do:
-
-- `{"status": "pending", "nextPollWaitS": 2}` -- wait `nextPollWaitS` seconds,
-  then poll again.
-- `{"status": "pending", "completionAttempts": 2, "lastAttemptError": "HTTP 500",
-  "nextPollWaitS": 4}` -- DMP is retrying the request. Wait and poll again.
-- `{"status": "succeeded", "response": {"status": 200, "body": {...}}}` -- done.
-  The service's response is in `response.body`.
-- `{"status": "failed", "error": "..."}` -- terminal failure.
-
-DMP retries the completion request up to 10 times with backoff.
 
 ## Rate services
 
-After a succeeded payment, rate the service to help other agents.
+After using a service, rate it to help other agents find the best ones.
 
 For objective outputs (search results, data, API responses), rate immediately
 based on correctness, speed, and value. For subjective outputs you can't
