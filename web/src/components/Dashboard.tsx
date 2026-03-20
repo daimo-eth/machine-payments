@@ -96,6 +96,32 @@ export function Dashboard({ onSelectProvider }: { onSelectProvider: (id: string)
             delay={160}
           />
         </div>
+
+        {(() => {
+          const rated = providers.filter((p) => p.total_ratings > 0 && p.avg_score != null);
+          if (rated.length === 0) return null;
+          const sorted = [...rated].sort((a, b) => Number(b.avg_score) - Number(a.avg_score));
+          const top = sorted[0];
+          const low = sorted[sorted.length - 1];
+          return (
+            <div className="review-summary">
+              <div className="review-card" onClick={() => onSelectProvider(top.id)}>
+                <span className="review-label">Top Rated</span>
+                <span className="review-name">{top.name || top.url}</span>
+                <span className="review-score">{Number(top.avg_score).toFixed(1)} / 5</span>
+                <span className="review-count">{top.total_ratings} review{top.total_ratings !== 1 ? "s" : ""}</span>
+              </div>
+              {low.id !== top.id && (
+                <div className="review-card" onClick={() => onSelectProvider(low.id)}>
+                  <span className="review-label">Lowest Rated</span>
+                  <span className="review-name">{low.name || low.url}</span>
+                  <span className="review-score">{Number(low.avg_score).toFixed(1)} / 5</span>
+                  <span className="review-count">{low.total_ratings} review{low.total_ratings !== 1 ? "s" : ""}</span>
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </section>
 
       <section className="dash-section">
