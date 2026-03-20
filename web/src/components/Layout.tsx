@@ -52,7 +52,7 @@ export function Layout({ children }: { children: ReactNode }) {
           <div className="header-live">
             <span className="header-live-dot" />
             {flash ? (
-              <span className="header-live-text header-live-flash" key={flash.key}>
+              <span className="header-live-text header-live-flash" key={flash.key} onAnimationEnd={() => setFlash(null)}>
                 {flash.status === "succeeded" ? "Paid" : flash.status} &middot; {shortUrl(flash.url)}
               </span>
             ) : (
