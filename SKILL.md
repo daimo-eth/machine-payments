@@ -10,28 +10,32 @@ Install the Tempo CLI if you don't have it:
 
 ```bash
 curl -fsSL https://tempo.xyz/install | bash
-"$HOME/.tempo/bin/tempo" wallet login
+"$HOME/.tempo/bin/tempo" wallet login    # requires user browser action -- prompt and wait
 "$HOME/.tempo/bin/tempo" wallet -t whoami
 ```
 
-If your balance is low, fund from any EVM wallet via DMP:
+Note your `wallet` address (your Tempo address) and `balance` from whoami.
+
+### Fund your wallet
+
+If your balance is low, fund from any EVM wallet:
 
 ```bash
 # 1. Get deposit address + token options
 curl -s -X POST https://mpp.daimo.com/v1/fund \
   -H 'Content-Type: application/json' \
-  -d '{"tempoAddress": "YOUR_TEMPO_ADDR", "amount": "5.00", "wallet": {"evmAddress": "YOUR_EVM_WALLET"}}'
+  -d '{"tempoAddress": "<your tempo wallet address>", "amount": "5.00", "wallet": {"evmAddress": "<your EVM wallet>"}}'
+# Returns: { sessionId, depositAddress, amount, tokenOptions }
 
-# Response: { sessionId, depositAddress, amount, tokenOptions }
-# Pick a token option and send requiredUnits to depositAddress on that chain.
+# 2. Pick a token option. Send requiredUnits to depositAddress on that chain.
 
-# 2. Poll until funded
+# 3. Poll until funded (wait nextPollWaitS seconds between polls)
 curl -s https://mpp.daimo.com/v1/fund/<sessionId>
-# Response: { status: "pending" | "succeeded" | "failed" }
+# Returns: { status: "pending", nextPollWaitS: 2 } or { status: "succeeded" }
 ```
 
 This bridges USDC (or any token) from any EVM chain to Tempo automatically.
-You can also use `tempo wallet fund` for interactive funding.
+You can also use `"$HOME/.tempo/bin/tempo" wallet fund` for interactive funding.
 
 ## Find services
 
@@ -41,39 +45,40 @@ List all providers, search by keyword, or filter by category.
 GET https://mpp.daimo.com/v1/providers?limit=20
 GET https://mpp.daimo.com/v1/providers?q=web+search
 GET https://mpp.daimo.com/v1/providers?category=ai
-GET https://mpp.daimo.com/v1/providers/<id>
 ```
 
-Each provider includes `name`, `description`, `category`, `avg_score`,
-`total_ratings`, and `total_payments`. Sort with `sortBy=total_payments`,
-`sortBy=avg_score`, or `sortBy=total_ratings`. Paginate with `limit` and
-`offset`.
+To find the right endpoint for a provider, use `tempo wallet -t services`:
 
-Once providers have ratings, `GET /v1/providers/leaderboard` ranks the
-top-rated ones (minimum 3 ratings).
+```bash
+# List endpoints, methods, costs, and docs for a service
+"$HOME/.tempo/bin/tempo" wallet -t services exa
+"$HOME/.tempo/bin/tempo" wallet -t services --search "image generation"
+```
 
 ## Call services
 
-Use `tempo request` pointed at the DMP proxy. The proxy records usage for
-the directory and lets you rate services afterward.
+Use `tempo request` pointed at the DMP proxy. The URL pattern is
+`https://mpp.daimo.com/proxy/<service_host>/<path>`.
 
 ```bash
-tempo request -t -X POST \
+"$HOME/.tempo/bin/tempo" request -t -X POST \
   --json '{"query": "latest rust release notes", "numResults": 3}' \
   https://mpp.daimo.com/proxy/exa.mpp.tempo.xyz/search
 ```
 
-The URL pattern is `https://mpp.daimo.com/proxy/<service_host>/<path>`.
 The proxy forwards your request transparently. Tempo CLI handles 402
-challenges, payment signing, and request replay automatically.
+payment challenges, signing, and replay automatically.
 
 For a dry run (show cost without paying):
 
 ```bash
-tempo request -t --dry-run -X POST \
+"$HOME/.tempo/bin/tempo" request -t --dry-run -X POST \
   --json '{"query": "test"}' \
   https://mpp.daimo.com/proxy/exa.mpp.tempo.xyz/search
 ```
+
+If `tempo request` fails with insufficient balance, fund your wallet (see
+Setup above) and retry.
 
 ## Rate services
 
