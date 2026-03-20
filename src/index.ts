@@ -5,7 +5,13 @@ import { migrate } from "./db";
 import * as daimo from "./daimo";
 import { handleRatingRoute } from "./rating/routes";
 import { ensureProvider } from "./rating/providers";
-import { createMppPayment, getMppPayment, updateMppPayment } from "./store";
+import {
+  createMppPayment,
+  getMppPayment,
+  updateMppPayment,
+  createCompletionAttempt,
+  getCompletionAttempt,
+} from "./store";
 import { parseMppCredential } from "./mpp";
 
 function json(data: unknown, status = 200) {
@@ -113,6 +119,20 @@ async function handleMppProxy(req: Request, paymentId: string): Promise<Response
   const payment = await getMppPayment(paymentId);
   if (!payment) return error("Payment not found", 404);
 
+  // Return cached response for already-completed payments
+  if (payment.status === "succeeded" && payment.finalCompletionAttemptId) {
+    const cached = await getCompletionAttempt(payment.finalCompletionAttemptId);
+    if (cached?.responseStatus != null && cached.responseBody != null) {
+      const headers = new Headers(
+        (cached.responseHeaders as Record<string, string>) ?? {}
+      );
+      return new Response(cached.responseBody, {
+        status: cached.responseStatus,
+        headers,
+      });
+    }
+  }
+
   const targetUrl = payment.originalRequest.url;
   const startMs = Date.now();
   const authHeader = req.headers.get("authorization") ?? "";
@@ -143,22 +163,48 @@ async function handleMppProxy(req: Request, paymentId: string): Promise<Response
 
   logProxyRequest(targetUrl, method, hasCred, targetRes.status, durationMs);
 
-  // Update payment record on successful paid request
-  if (hasCred && targetRes.status < 400) {
-    const cred = parseMppCredential(authHeader);
-    if (cred) {
-      updateMppPayment(paymentId, {
-        status: "succeeded",
-        outputTxHash: cred.txHash,
-      }).catch(() => {});
-    }
-  }
-
-  // Pass through response
+  // Pass through response, stripping hop-by-hop headers
   const resHeaders = new Headers();
   targetRes.headers.forEach((v, k) => {
     if (!STRIP_HEADERS.has(k.toLowerCase())) resHeaders.set(k, v);
   });
+
+  // Update payment record on successful paid request, cache response
+  if (hasCred && targetRes.status < 400) {
+    const cred = parseMppCredential(authHeader);
+    if (cred) {
+      const resBody = await targetRes.text();
+      const resHeadersObj = Object.fromEntries(resHeaders.entries());
+
+      // Store completion attempt and link to payment
+      createCompletionAttempt({
+        paymentId,
+        deliveryTxHash: cred.txHash,
+        requestUrl: targetUrl,
+        requestMethod: method,
+        requestHeaders: Object.fromEntries(fwdHeaders.entries()),
+        requestBody: reqBody ? await new Blob([reqBody]).text() : undefined,
+        responseStatus: targetRes.status,
+        responseHeaders: resHeadersObj,
+        responseBody: resBody,
+        outcome: "success",
+        durationMs,
+      })
+        .then((attempt) =>
+          updateMppPayment(paymentId, {
+            status: "succeeded",
+            outputTxHash: cred.txHash,
+            finalCompletionAttemptId: attempt.id,
+          })
+        )
+        .catch(() => {});
+
+      return new Response(resBody, {
+        status: targetRes.status,
+        headers: resHeaders,
+      });
+    }
+  }
 
   return new Response(targetRes.body, { status: targetRes.status, headers: resHeaders });
 }
