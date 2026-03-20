@@ -1,8 +1,8 @@
 <img src="https://github.com/user-attachments/assets/ce06d1d8-7533-49bd-ba59-b25f7b1466e6" />
 
-# Daimo Machine Payments
+# Universal MPP
 
-**Let the machine buy anything.** Find the best [MPP](https://mpp.dev/) provider for any service. Track quality and reliability. Pay from any token on any chain.
+Let the bot buy anything. Agent API shows the best [MPP](https://mpp.dev/) provider for any service. Latency, quality, reliability. Agent pays from any coin, rates 1-5 star.
 
 | Site           | Link                                   |
 |----------------|----------------------------------------|
