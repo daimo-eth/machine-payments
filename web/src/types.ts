@@ -1,3 +1,11 @@
+export type ProviderEndpoint = {
+  method: string;
+  path: string;
+  description: string;
+  intent: string | null;
+  price: string | null;
+};
+
 export type Provider = {
   id: string;
   url: string;
@@ -5,6 +13,7 @@ export type Provider = {
   description: string | null;
   category: string | null;
   metadata: Record<string, unknown> | null;
+  endpoints: ProviderEndpoint[] | null;
   created_at: string;
   updated_at: string;
 };

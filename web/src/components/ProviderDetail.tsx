@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { fetchProviderDetail } from "../api";
-import type { ProviderDetailResponse } from "../types";
+import type { ProviderDetailResponse, ProviderEndpoint } from "../types";
 import { StarRating } from "./StarRating";
 import { TagChip } from "./TagChip";
 import { RatingItem } from "./RatingItem";
@@ -8,6 +8,55 @@ import { RatingItem } from "./RatingItem";
 function displayName(p: { name: string | null; url: string }): string {
   if (p.name) return p.name;
   try { return new URL(p.url).hostname; } catch { return p.url; }
+}
+
+function EndpointsTable({ endpoints }: { endpoints: ProviderEndpoint[] }) {
+  const paid = endpoints.filter((e) => e.intent);
+  const free = endpoints.filter((e) => !e.intent);
+
+  return (
+    <div className="endpoints-wrap">
+      {paid.length > 0 && (
+        <table className="endpoints-table">
+          <thead>
+            <tr>
+              <th className="ep-col-method">Method</th>
+              <th className="ep-col-path">Endpoint</th>
+              <th className="ep-col-desc">Description</th>
+              <th className="ep-col-price">Price</th>
+            </tr>
+          </thead>
+          <tbody>
+            {paid.map((e, i) => (
+              <tr key={i} className="ep-row">
+                <td className="ep-col-method"><span className="ep-method">{e.method}</span></td>
+                <td className="ep-col-path ep-mono">{e.path}</td>
+                <td className="ep-col-desc">{e.description}</td>
+                <td className="ep-col-price ep-mono">{e.price ?? "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {free.length > 0 && (
+        <>
+          <h3 className="ep-free-label">Free endpoints</h3>
+          <table className="endpoints-table">
+            <tbody>
+              {free.map((e, i) => (
+                <tr key={i} className="ep-row ep-row-free">
+                  <td className="ep-col-method"><span className="ep-method">{e.method}</span></td>
+                  <td className="ep-col-path ep-mono">{e.path}</td>
+                  <td className="ep-col-desc">{e.description}</td>
+                  <td className="ep-col-price">—</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+    </div>
+  );
 }
 
 export function ProviderDetail({ providerId, onBack }: { providerId: string; onBack: () => void }) {
@@ -31,6 +80,7 @@ export function ProviderDetail({ providerId, onBack }: { providerId: string; onB
   if (!data) return <div className="loading">Loading...</div>;
 
   const { provider, stats, recentRatings } = data;
+  const endpoints = provider.endpoints ?? [];
 
   return (
     <div className="detail fade-in">
@@ -45,6 +95,13 @@ export function ProviderDetail({ providerId, onBack }: { providerId: string; onB
         <StarRating score={stats.avgScore} />
         {provider.description && <p className="detail-desc">{provider.description}</p>}
       </div>
+
+      {endpoints.length > 0 && (
+        <section className="detail-section">
+          <h2>Endpoints</h2>
+          <EndpointsTable endpoints={endpoints} />
+        </section>
+      )}
 
       <section className="detail-section">
         <h2>Stats</h2>

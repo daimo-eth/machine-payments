@@ -65,6 +65,10 @@ export async function migrate() {
   `;
 
   await sql`
+    ALTER TABLE mpp_providers ADD COLUMN IF NOT EXISTS endpoints JSONB
+  `;
+
+  await sql`
     CREATE INDEX IF NOT EXISTS idx_mpp_providers_search
     ON mpp_providers USING GIN (search_vector)
   `;
