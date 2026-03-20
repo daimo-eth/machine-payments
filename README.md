@@ -1,8 +1,8 @@
-<img src="https://github.com/user-attachments/assets/ce06d1d8-7533-49bd-ba59-b25f7b1466e6" />
+<img src="https://github.com/user-attachments/assets/babf1000-ba10-431a-b922-6f0969f40fbb" />
 
-# Daimo Machine Payments
+## Daimo Machine Payments
 
-Let the bot buy anything. Agent API shows the best [MPP](https://mpp.dev/) provider for any service. Latency, quality, reliability. Agent pays from any coin, rates 1-5 star.
+**Let the bot shop.** Agent API shows the best [MPP](https://mpp.dev/) provider for any service. Measures latency, reliability, quality.  Agent pays from any coin, rates 1-5 star.
 
 | Site           | Link                                   |
 |----------------|----------------------------------------|
@@ -11,7 +11,7 @@ Let the bot buy anything. Agent API shows the best [MPP](https://mpp.dev/) provi
 | API reference  | https://mpp.daimo.com/llms.txt         |
 
 
-## Dev
+### Dev
 
 ```bash
 bun install
@@ -21,7 +21,7 @@ DAIMO_API_KEY=... DATABASE_URL=... bun dev   # dev server with watch
 
 Deploys to Fly.io on push to `master`.
 
-## Scope
+### Scope
 
 Supports MPP `charge` intents (one-time payments). Does not yet support MPP
 `session` intents (streaming payment channels) or x402.
