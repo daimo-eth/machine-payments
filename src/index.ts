@@ -5,6 +5,8 @@ import { migrate } from "./db";
 import * as daimo from "./daimo";
 import { handleRatingRoute } from "./rating/routes";
 import { ensureProvider } from "./rating/providers";
+import { createMppPayment, getMppPayment, updateMppPayment } from "./store";
+import { parseMppCredential } from "./mpp";
 
 function json(data: unknown, status = 200) {
   return Response.json(data, { status });
@@ -74,6 +76,91 @@ function logProxyRequest(
     INSERT INTO mpp_proxy_requests (target_url, method, has_payment_credential, response_status, duration_ms, error)
     VALUES (${targetUrl}, ${method}, ${hasCred}, ${status ?? null}, ${durationMs}, ${err ?? null})
   `.catch(() => {});
+}
+
+// -- DMP payment flow: POST /v1/mpp/start, /v1/mpp/proxy/:paymentId --
+
+/** Create a DMP payment record for a request. */
+async function handleMppStart(req: Request): Promise<Response> {
+  let body: { url: string; method: string; headers?: Record<string, string>; body?: unknown };
+  try {
+    body = await req.json();
+  } catch {
+    return error("Invalid JSON body");
+  }
+  if (!body.url) return error("url is required");
+  if (!body.method) return error("method is required");
+
+  const payment = await createMppPayment({
+    daimoSessionId: "",
+    daimoClientSecret: "",
+    originalRequest: {
+      url: body.url,
+      method: body.method,
+      headers: body.headers ?? {},
+      body: body.body != null ? (typeof body.body === "string" ? body.body : JSON.stringify(body.body)) : undefined,
+    },
+    challenge: {} as any,
+    depositAddress: "",
+    tokenOptions: [],
+  });
+
+  return json({ paymentId: payment.id });
+}
+
+/** Proxy a request using stored payment details. Updates payment on success. */
+async function handleMppProxy(req: Request, paymentId: string): Promise<Response> {
+  const payment = await getMppPayment(paymentId);
+  if (!payment) return error("Payment not found", 404);
+
+  const targetUrl = payment.originalRequest.url;
+  const startMs = Date.now();
+  const authHeader = req.headers.get("authorization") ?? "";
+  const hasCred = authHeader.startsWith("Payment ");
+
+  // Forward caller's headers (for auth), stripping hop-by-hop
+  const fwdHeaders = new Headers();
+  req.headers.forEach((v, k) => {
+    if (!STRIP_HEADERS.has(k.toLowerCase())) fwdHeaders.set(k, v);
+  });
+
+  const method = payment.originalRequest.method;
+  const reqBody = req.method !== "GET" && req.method !== "HEAD" ? await req.blob() : undefined;
+
+  let targetRes: Response;
+  try {
+    targetRes = await fetch(targetUrl, { method, headers: fwdHeaders, body: reqBody });
+  } catch (e) {
+    logProxyRequest(targetUrl, method, hasCred, undefined, Date.now() - startMs, String(e));
+    return error(`Failed to reach ${targetUrl}: ${e}`, 502);
+  }
+
+  const durationMs = Date.now() - startMs;
+
+  if (targetRes.status === 402) {
+    ensureProvider(targetUrl).catch(() => {});
+  }
+
+  logProxyRequest(targetUrl, method, hasCred, targetRes.status, durationMs);
+
+  // Update payment record on successful paid request
+  if (hasCred && targetRes.status < 400) {
+    const cred = parseMppCredential(authHeader);
+    if (cred) {
+      updateMppPayment(paymentId, {
+        status: "succeeded",
+        outputTxHash: cred.txHash,
+      }).catch(() => {});
+    }
+  }
+
+  // Pass through response
+  const resHeaders = new Headers();
+  targetRes.headers.forEach((v, k) => {
+    if (!STRIP_HEADERS.has(k.toLowerCase())) resHeaders.set(k, v);
+  });
+
+  return new Response(targetRes.body, { status: targetRes.status, headers: resHeaders });
 }
 
 // -- Fund Tempo wallet via Daimo session: POST /v1/fund, GET /v1/fund/:sessionId --
@@ -175,6 +262,16 @@ const server = Bun.serve({
       if (await file.exists()) {
         return new Response(file, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
       }
+    }
+
+    // DMP payment flow
+    if (req.method === "POST" && url.pathname === "/v1/mpp/start") {
+      return handleMppStart(req);
+    }
+    if (url.pathname.startsWith("/v1/mpp/proxy/")) {
+      const paymentId = url.pathname.slice("/v1/mpp/proxy/".length);
+      if (!paymentId) return error("Payment ID required", 400);
+      return handleMppProxy(req, paymentId);
     }
 
     // Fund Tempo wallet from any chain

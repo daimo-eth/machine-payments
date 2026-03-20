@@ -8,112 +8,54 @@ Base URL: https://mpp.daimo.com
 
 ## Payment flow
 
-### 1. POST /v1/mpp/request
+### 1. POST /v1/mpp/start
 
-Send a request through DMP. If the target service returns 402, DMP parses the
-MPP challenge, creates a Daimo session targeting the service's destination, and
-returns token options so you can pay from any chain.
+Create a tracked DMP payment. Returns a paymentId you can use to proxy the
+request and later rate the service.
 
 Request:
 ```json
 {
-  "url": "https://mpp.dev/api/exa/v1/search",
+  "url": "https://exa.mpp.tempo.xyz/search",
   "method": "POST",
   "headers": { "Content-Type": "application/json" },
-  "body": { "query": "latest rust release notes", "numResults": 5 },
-  "wallet": { "evmAddress": "0x1234567890abcdef1234567890abcdef12345678" }
+  "body": { "query": "latest rust release notes", "numResults": 5 }
 }
 ```
 
-Response (402 from target -- payment required):
+Response:
 ```json
 {
-  "status": "payment_required",
-  "paymentId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-  "depositAddress": "0xabcdef1234567890abcdef1234567890abcdef12",
-  "tokenOptions": [
-    {
-      "chainId": 42161,
-      "tokenAddress": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
-      "tokenSymbol": "USDC",
-      "requiredUnits": "0.01",
-      "balanceUnits": "5.00"
-    },
-    {
-      "chainId": 8453,
-      "tokenAddress": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-      "tokenSymbol": "USDC",
-      "requiredUnits": "0.01",
-      "balanceUnits": "2.50"
-    }
-  ],
-  "payment": {
-    "amount": "0.01",
-    "recipient": "0x742d35Cc6634C0532925a3b844Bc9e7595f8fE00",
-    "chainId": 42431
-  }
+  "paymentId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
 }
 ```
 
-Response (no 402 -- request succeeded directly):
-```json
-{
-  "status": "success",
-  "response": { "status": 200, "body": { "results": ["..."] } }
-}
+### 2. * /v1/mpp/proxy/:paymentId
+
+Proxy a request using the stored payment URL. The request body and headers
+come from the caller; the target URL and method come from the payment record.
+Use the Tempo CLI to handle 402 payment challenges automatically.
+
+```bash
+tempo request -t -X POST \
+  --json '{"query": "latest rust release notes", "numResults": 5}' \
+  https://mpp.daimo.com/v1/mpp/proxy/a1b2c3d4-e5f6-7890-abcd-ef1234567890
 ```
 
-Pick a token option and send that amount to `depositAddress` on that chain.
-Daimo handles bridging to the service's destination chain.
+When the upstream returns a successful response and the request includes an
+`Authorization: Payment` credential, the payment is marked as `succeeded`.
+The raw upstream response is returned as-is.
 
-### 2. GET /v1/mpp/poll/:paymentId
+### Direct proxy (no payment tracking)
 
-Poll until payment completes. Once the Daimo session succeeds, DMP replays the
-original request with an `Authorization: Payment` credential (Tempo hash proof)
-and returns the service's response.
+You can also proxy without creating a payment first:
 
-Optional query param: `?txHash=0x...` to speed up payment detection.
-
-Request:
 ```
-GET /v1/mpp/poll/a1b2c3d4-e5f6-7890-abcd-ef1234567890?txHash=0xdeadbeef...
+* /proxy/<target_host>/<path>
 ```
 
-Response (still waiting for payment):
-```json
-{ "status": "pending", "nextPollWaitS": 2 }
-```
-
-Response (completion attempt failed, retrying):
-```json
-{
-  "status": "pending",
-  "completionAttempts": 2,
-  "lastAttemptError": "HTTP 500",
-  "nextPollWaitS": 4
-}
-```
-
-Response (succeeded):
-```json
-{
-  "status": "succeeded",
-  "response": {
-    "status": 200,
-    "body": { "results": ["..."] }
-  }
-}
-```
-
-Response (failed):
-```json
-{
-  "status": "failed",
-  "error": "Daimo session expired"
-}
-```
-
-DMP retries the completion request up to 10 times with exponential backoff.
+This forwards transparently but does not create a payment record, so you
+cannot rate the service afterward.
 
 ## Ratings
 
@@ -267,6 +209,92 @@ Request:
 Response:
 ```json
 { "provider": { "id": "...", "name": "Exa Search", "..." : "..." } }
+```
+
+## Fund Tempo wallet
+
+Fund a Tempo wallet from any EVM chain via Daimo bridging.
+
+### POST /v1/fund
+
+Create a Daimo session to bridge tokens to a Tempo address.
+
+Request:
+```json
+{
+  "tempoAddress": "0xYOUR_TEMPO_ADDRESS",
+  "amount": "5.00",
+  "wallet": { "evmAddress": "0xYOUR_EVM_WALLET" }
+}
+```
+
+Fields:
+- `tempoAddress` (required): destination Tempo wallet address
+- `amount` (optional): USDC amount, default "5.00"
+- `wallet` (required): object with `evmAddress` or `solanaAddress`
+
+Response:
+```json
+{
+  "sessionId": "sess_abc123",
+  "depositAddress": "0xDEPOSIT_ADDRESS",
+  "amount": "5.00",
+  "tokenOptions": [
+    {
+      "chainId": 8453,
+      "tokenAddress": "0x...",
+      "tokenSymbol": "USDC",
+      "requiredUnits": "5000000",
+      "balanceUnits": "10000000"
+    }
+  ]
+}
+```
+
+Pick a token option and send `requiredUnits` to `depositAddress` on that chain.
+
+### GET /v1/fund/:sessionId
+
+Poll for funding completion.
+
+Response:
+```json
+{ "status": "pending", "nextPollWaitS": 2 }
+```
+```json
+{ "status": "succeeded", "delivery": { "txHash": "0x...", "receivedUnits": "5000000" } }
+```
+```json
+{ "status": "failed", "error": "Session expired" }
+```
+
+## Stats
+
+### GET /v1/stats
+
+Dashboard aggregate stats and time-series data.
+
+Query params:
+- `range` -- `1m`, `5m`, `1h`, `24h` (default), or `all`
+
+Response:
+```json
+{
+  "totals": { "transactions": 42, "providers": 10, "ratings": 15 },
+  "series": { "transactions": [1, 0, 3, 2], "ratings": [0, 1, 0, 1] },
+  "recentPayments": [
+    {
+      "id": "...",
+      "status": "succeeded",
+      "created_at": "2026-03-19T20:00:00.000Z",
+      "original_url": "https://exa.mpp.tempo.xyz/search",
+      "original_method": "POST",
+      "challenge_realm": "exa.mpp.tempo.xyz",
+      "output_tx_hash": "0x...",
+      "provider_name": "Exa"
+    }
+  ]
+}
 ```
 
 ## Errors

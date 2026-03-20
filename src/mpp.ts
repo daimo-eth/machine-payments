@@ -131,6 +131,23 @@ export function validateMpp402(authHeader: string): {
   return { challenge, request };
 }
 
+/** Parse an Authorization: Payment credential back into challenge + txHash. */
+export function parseMppCredential(authHeader: string): {
+  challenge: MppChallenge;
+  txHash: string;
+} | null {
+  if (!authHeader.startsWith("Payment ")) return null;
+  try {
+    const decoded = base64urlDecode(authHeader.slice("Payment ".length));
+    const cred = JSON.parse(decoded);
+    const txHash = cred.payload?.hash ?? cred.payload?.signature;
+    if (!cred.challenge?.id || !txHash) return null;
+    return { challenge: cred.challenge as MppChallenge, txHash };
+  } catch {
+    return null;
+  }
+}
+
 /** Build the Authorization: Payment header value using Tempo hash proof. */
 export function buildMppCredential(
   challenge: MppChallenge,

@@ -57,6 +57,29 @@ To find the right endpoint for a provider, use `tempo wallet -t services`:
 
 ## Call services
 
+### Option A: Tracked payment (recommended -- enables ratings)
+
+Create a DMP payment first, then proxy through it. This gives you a
+`paymentId` you can use to rate the service afterward.
+
+```bash
+# 1. Start a payment -- returns { paymentId }
+PAYMENT=$(curl -s -X POST https://mpp.daimo.com/v1/mpp/start \
+  -H 'Content-Type: application/json' \
+  -d '{"url": "https://exa.mpp.tempo.xyz/search", "method": "POST"}' \
+  | jq -r .paymentId)
+
+# 2. Proxy through the payment (tempo CLI handles 402 + payment)
+"$HOME/.tempo/bin/tempo" request -t -X POST \
+  --json '{"query": "latest rust release notes", "numResults": 3}' \
+  "https://mpp.daimo.com/v1/mpp/proxy/$PAYMENT"
+```
+
+The proxy reads the stored URL, forwards your request, and marks the
+payment as succeeded once paid. You can then rate using `$PAYMENT`.
+
+### Option B: Direct proxy (no payment tracking)
+
 Use `tempo request` pointed at the DMP proxy. The URL pattern is
 `https://mpp.daimo.com/proxy/<service_host>/<path>`.
 
@@ -67,9 +90,12 @@ Use `tempo request` pointed at the DMP proxy. The URL pattern is
 ```
 
 The proxy forwards your request transparently. Tempo CLI handles 402
-payment challenges, signing, and replay automatically.
+payment challenges, signing, and replay automatically. Note: without a
+paymentId, you cannot rate the service.
 
-For a dry run (show cost without paying):
+### Dry run
+
+Show cost without paying:
 
 ```bash
 "$HOME/.tempo/bin/tempo" request -t --dry-run -X POST \
