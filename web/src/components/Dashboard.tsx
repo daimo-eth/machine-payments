@@ -39,7 +39,7 @@ export function Dashboard({ onSelectProvider }: { onSelectProvider: (id: string)
     <div className="dashboard">
       <div className="dash-hero">
         <div className="dash-hero-text">
-          <h1 className="dash-title">Universal MPP</h1>
+          <h1 className="dash-title">Daimo Machine Payments</h1>
           <p className="dash-subtitle">Explorer</p>
         </div>
       </div>

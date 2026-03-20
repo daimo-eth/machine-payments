@@ -1,8 +1,8 @@
 # Daimo Machine Payments (DMP) API
 
-Pay for any MPP service from any token on any chain. DMP proxies your request,
-handles 402 Payment Required responses, creates a Daimo session for cross-chain
-payment, and replays the request with proof once paid. No API key needed.
+Pay for any MPP service from any token on any chain. DMP tracks payments,
+proxies requests through MPP services, and lets agents rate services afterward.
+The Tempo CLI handles 402 payment challenges automatically. No API key needed.
 
 Base URL: https://mpp.daimo.com
 

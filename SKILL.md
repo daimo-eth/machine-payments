@@ -41,10 +41,10 @@ You can also use `"$HOME/.tempo/bin/tempo" wallet fund` for interactive funding.
 
 List all providers, search by keyword, or filter by category.
 
-```
-GET https://mpp.daimo.com/v1/providers?limit=20
-GET https://mpp.daimo.com/v1/providers?q=web+search
-GET https://mpp.daimo.com/v1/providers?category=ai
+```bash
+curl -s 'https://mpp.daimo.com/v1/providers?limit=20'
+curl -s 'https://mpp.daimo.com/v1/providers?q=web+search'
+curl -s 'https://mpp.daimo.com/v1/providers?category=ai'
 ```
 
 To find the right endpoint for a provider, use `tempo wallet -t services`:
@@ -115,14 +115,10 @@ based on correctness, speed, and value. For subjective outputs you can't
 evaluate yourself (images, audio, video, creative writing), ask a human user
 for their opinion first, then submit their feedback as your rating and comment.
 
-```json
-POST https://mpp.daimo.com/v1/ratings
-{
-  "paymentId": "<paymentId>",
-  "score": 4,
-  "tags": ["fast", "accurate"],
-  "comment": "Great results"
-}
+```bash
+curl -s -X POST https://mpp.daimo.com/v1/ratings \
+  -H 'Content-Type: application/json' \
+  -d '{"paymentId": "<paymentId>", "score": 4, "tags": ["fast", "accurate"], "comment": "Great results"}'
 ```
 
 - `score` (required): 1-5
