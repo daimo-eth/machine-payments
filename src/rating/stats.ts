@@ -24,9 +24,10 @@ export async function getDashboardStats(range: TimeRange = "24h") {
   const interval = RANGE_INTERVAL[range];
   const bucket = BUCKET_INTERVAL[range];
 
+  // Count successful proxy requests (200 with payment credential = paid API call)
   const [txns] = await sql<{ cnt: number }[]>`
-    SELECT COUNT(*)::int as cnt FROM mpp_payments
-    WHERE status = 'succeeded'
+    SELECT COUNT(*)::int as cnt FROM mpp_proxy_requests
+    WHERE response_status = 200 AND has_payment_credential = true
     ${interval ? sql`AND created_at >= now() - ${interval}::interval` : sql``}
   `;
 
@@ -39,12 +40,13 @@ export async function getDashboardStats(range: TimeRange = "24h") {
     ${interval ? sql`WHERE created_at >= now() - ${interval}::interval` : sql``}
   `;
 
+  // Time-series from proxy requests
   const txnSeries = await sql<{ cnt: number }[]>`
     SELECT cnt FROM (
       SELECT date_bin(${bucket}::interval, created_at, '2020-01-01'::timestamptz) as b,
              COUNT(*)::int as cnt
-      FROM mpp_payments
-      WHERE status = 'succeeded'
+      FROM mpp_proxy_requests
+      WHERE response_status = 200 AND has_payment_credential = true
       ${interval ? sql`AND created_at >= now() - ${interval}::interval` : sql``}
       GROUP BY b ORDER BY b
     ) sub
@@ -60,31 +62,32 @@ export async function getDashboardStats(range: TimeRange = "24h") {
     ) sub
   `;
 
+  // Recent proxy requests for the ticker
   const recentPayments = await sql<{
     id: string;
     status: string;
     created_at: string;
     original_url: string | null;
     original_method: string | null;
-    challenge_realm: string | null;
-    challenge_description: string | null;
-    challenge_request: string | null;
-    output_tx_hash: string | null;
-    deposit_address: string | null;
+    duration_ms: number | null;
     provider_name: string | null;
   }[]>`
-    SELECT p.id, p.status, p.created_at,
-           p.original_request->>'url' as original_url,
-           p.original_request->>'method' as original_method,
-           p.challenge->>'realm' as challenge_realm,
-           p.challenge->>'description' as challenge_description,
-           p.challenge->>'request' as challenge_request,
-           p.output_tx_hash,
-           p.deposit_address,
+    SELECT r.id,
+           CASE
+             WHEN r.response_status = 200 AND r.has_payment_credential THEN 'succeeded'
+             WHEN r.response_status = 402 THEN 'pending'
+             WHEN r.error IS NOT NULL THEN 'failed'
+             ELSE 'failed'
+           END as status,
+           r.created_at,
+           r.target_url as original_url,
+           r.method as original_method,
+           r.duration_ms,
            prov.name as provider_name
-    FROM mpp_payments p
-    LEFT JOIN mpp_providers prov ON p.original_request->>'url' LIKE prov.url || '%'
-    ORDER BY p.created_at DESC LIMIT 20
+    FROM mpp_proxy_requests r
+    LEFT JOIN mpp_providers prov ON r.target_url LIKE prov.url || '%'
+    WHERE r.response_status IS NOT NULL
+    ORDER BY r.created_at DESC LIMIT 20
   `;
 
   return {

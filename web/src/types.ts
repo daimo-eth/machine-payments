@@ -58,11 +58,7 @@ export type RecentPayment = {
   created_at: string;
   original_url: string | null;
   original_method: string | null;
-  challenge_realm: string | null;
-  challenge_description: string | null;
-  challenge_request: string | null;
-  output_tx_hash: string | null;
-  deposit_address: string | null;
+  duration_ms: number | null;
   provider_name: string | null;
 };
 

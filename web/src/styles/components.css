@@ -464,20 +464,14 @@
 .ticker-row:hover { background: var(--color-surface-hover); }
 
 .ticker-col { flex-shrink: 0; }
-.ticker-col-status { width: 72px; }
-.ticker-col-service { width: 110px; font-weight: 500; color: var(--color-text); overflow: hidden; text-overflow: ellipsis; }
-.ticker-col-path { width: 180px; color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; }
-.ticker-col-amount { width: 64px; color: var(--color-text); font-weight: 600; }
-.ticker-col-desc { flex: 1; min-width: 80px; overflow: hidden; text-overflow: ellipsis; color: var(--color-text-secondary); }
-.ticker-col-tx { width: 90px; }
+.ticker-col-status { width: 56px; }
+.ticker-col-service { width: 120px; font-weight: 500; color: var(--color-text); overflow: hidden; text-overflow: ellipsis; }
+.ticker-col-method { width: 50px; color: var(--color-text-muted); }
+.ticker-col-path { flex: 1; min-width: 120px; color: var(--color-text-secondary); overflow: hidden; text-overflow: ellipsis; }
+.ticker-col-duration { width: 72px; text-align: right; color: var(--color-text-muted); }
 .ticker-col-time { width: 40px; text-align: right; color: var(--color-text-muted); }
 
 .ticker-mono { font-variant-numeric: tabular-nums; }
-
-.ticker-desc-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
 .ticker-badge {
   display: inline-block;
