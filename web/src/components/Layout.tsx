@@ -14,6 +14,7 @@ type PaymentFlash = { id: string; url: string; status: string; key: number };
 
 export function Layout({ children }: { children: ReactNode }) {
   const [flash, setFlash] = useState<PaymentFlash | null>(null);
+  const [txCount, setTxCount] = useState<number | null>(null);
   const lastSeenRef = useRef<string>("");
   const keyRef = useRef(0);
 
@@ -39,6 +40,13 @@ export function Layout({ children }: { children: ReactNode }) {
       if (running) setTimeout(poll, 5000);
     }
     poll();
+
+    // Fetch all-time total once
+    fetch("/v1/stats?range=all")
+      .then((r) => r.json())
+      .then((d) => setTxCount(d.totals?.transactions ?? null))
+      .catch(() => {});
+
     return () => { running = false; };
   }, []);
 
@@ -46,9 +54,14 @@ export function Layout({ children }: { children: ReactNode }) {
     <div className="layout">
       <header className="header">
         <div className="header-inner">
-          <a href="/" className="header-brand" onClick={goHome}>
-            <span className="header-wordmark">mpp.daimo.com</span>
-          </a>
+          <div className="header-left">
+            <a href="/" className="header-brand" onClick={goHome}>
+              <span className="header-wordmark">mpp.daimo.com</span>
+            </a>
+            {txCount != null && txCount > 0 && (
+              <span className="header-stat">{txCount} payments routed</span>
+            )}
+          </div>
           <div className="header-live">
             <span className="header-live-dot" />
             {flash ? (
