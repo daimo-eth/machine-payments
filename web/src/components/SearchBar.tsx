@@ -9,7 +9,7 @@ export function SearchBar({ value, onChange }: { value: string; onChange: (v: st
   function handleChange(v: string) {
     setLocal(v);
     clearTimeout(timer.current);
-    timer.current = setTimeout(() => onChange(v), 300);
+    timer.current = setTimeout(() => onChange(v), 100);
   }
 
   return (

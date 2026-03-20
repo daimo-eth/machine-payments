@@ -54,6 +54,7 @@ export type RecentPayment = {
   challenge_request: string | null;
   output_tx_hash: string | null;
   deposit_address: string | null;
+  provider_name: string | null;
 };
 
 export type DashboardStats = {

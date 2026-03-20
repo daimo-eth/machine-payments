@@ -85,7 +85,7 @@ export function ActivityFeed({ payments }: { payments: RecentPayment[] }) {
             <span className={`ticker-col ticker-col-status`}>
               <span className={`ticker-badge ${cls}`}>{label}</span>
             </span>
-            <span className="ticker-col ticker-col-service">{host}</span>
+            <span className="ticker-col ticker-col-service">{p.provider_name || host}</span>
             <span className="ticker-col ticker-col-method ticker-mono">{method}</span>
             <span className="ticker-col ticker-col-amount ticker-mono">{amount ?? "—"}</span>
             <span className="ticker-col ticker-col-desc ticker-desc-text" title={desc}>{desc}</span>

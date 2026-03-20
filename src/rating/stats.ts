@@ -71,17 +71,20 @@ export async function getDashboardStats(range: TimeRange = "24h") {
     challenge_request: string | null;
     output_tx_hash: string | null;
     deposit_address: string | null;
+    provider_name: string | null;
   }[]>`
-    SELECT id, status, created_at,
-           original_request->>'url' as original_url,
-           original_request->>'method' as original_method,
-           challenge->>'realm' as challenge_realm,
-           challenge->>'description' as challenge_description,
-           challenge->>'request' as challenge_request,
-           output_tx_hash,
-           deposit_address
-    FROM mpp_payments
-    ORDER BY created_at DESC LIMIT 20
+    SELECT p.id, p.status, p.created_at,
+           p.original_request->>'url' as original_url,
+           p.original_request->>'method' as original_method,
+           p.challenge->>'realm' as challenge_realm,
+           p.challenge->>'description' as challenge_description,
+           p.challenge->>'request' as challenge_request,
+           p.output_tx_hash,
+           p.deposit_address,
+           prov.name as provider_name
+    FROM mpp_payments p
+    LEFT JOIN mpp_providers prov ON p.original_request->>'url' LIKE prov.url || '%'
+    ORDER BY p.created_at DESC LIMIT 20
   `;
 
   return {
