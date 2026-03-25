@@ -361,7 +361,13 @@ const server = Bun.serve({
     const staticDir = import.meta.dir + "/../web/dist";
     const filePath = url.pathname === "/" ? "/index.html" : url.pathname;
     const file = Bun.file(staticDir + filePath);
-    if (await file.exists()) return new Response(file);
+    if (await file.exists()) {
+      const ct = file.type;
+      if (ct.startsWith("text/") && !ct.includes("charset")) {
+        return new Response(file, { headers: { "Content-Type": `${ct}; charset=utf-8` } });
+      }
+      return new Response(file);
+    }
     // SPA fallback
     const indexFile = Bun.file(staticDir + "/index.html");
     if (await indexFile.exists()) return new Response(indexFile);
