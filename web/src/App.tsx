@@ -2,11 +2,16 @@ import { useState, useEffect, useCallback } from "react";
 import { Layout } from "./components/Layout";
 import { Dashboard } from "./components/Dashboard";
 import { ProviderDetail } from "./components/ProviderDetail";
+import { Demo } from "./components/Demo";
 
-type View = { page: "home" } | { page: "detail"; providerId: string };
+type View =
+  | { page: "home" }
+  | { page: "detail"; providerId: string }
+  | { page: "demo" };
 
 function parseView(): View {
   const path = window.location.pathname;
+  if (path === "/demo") return { page: "demo" };
   const match = path.match(/^\/providers\/(.+)/);
   if (match) return { page: "detail", providerId: match[1] };
   return { page: "home" };
@@ -16,7 +21,12 @@ export function App() {
   const [view, setView] = useState<View>(parseView);
 
   const navigate = useCallback((v: View) => {
-    const path = v.page === "detail" ? `/providers/${v.providerId}` : "/";
+    const path =
+      v.page === "detail"
+        ? `/providers/${v.providerId}`
+        : v.page === "demo"
+          ? "/demo"
+          : "/";
     window.history.pushState(null, "", path);
     setView(v);
   }, []);
@@ -29,7 +39,9 @@ export function App() {
 
   return (
     <Layout>
-      {view.page === "detail" ? (
+      {view.page === "demo" ? (
+        <Demo />
+      ) : view.page === "detail" ? (
         <ProviderDetail
           providerId={view.providerId}
           onBack={() => navigate({ page: "home" })}
