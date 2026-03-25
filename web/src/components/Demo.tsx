@@ -2,7 +2,7 @@ export function Demo() {
   return (
     <div className="demo-page">
       <div className="demo-hero">
-        <h1 className="demo-title">MAKE AN ANTHEM ABOUT YOU<br />WITH TEMPO MPP</h1>
+        <h1 className="demo-title"><span>MAKE AN ANTHEM ABOUT YOU</span><br /><span>WITH TEMPO MPP</span></h1>
         <p className="demo-description">
           Connect your Tempo account, find the best music provider, and generate
           a personalized anthem about you using your Claude memory.

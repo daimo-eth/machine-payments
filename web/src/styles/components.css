@@ -822,6 +822,10 @@
   margin-bottom: 16px;
 }
 
+.demo-title span {
+  white-space: nowrap;
+}
+
 .demo-description {
   font-size: 0.88rem;
   color: var(--color-text-secondary);
