@@ -3,21 +3,25 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --color-bg: #0a0a0a;
-  --color-surface: #141414;
-  --color-surface-hover: #1c1c1c;
-  --color-border: #2a2a2a;
-  --color-border-subtle: #1e1e1e;
-  --color-text: #f0f0f0;
-  --color-text-secondary: #aaa;
-  --color-text-muted: #707070;
-  --color-accent: #f0f0f0;
-  --color-accent-dim: rgba(255, 255, 255, 0.06);
+  --color-bg: #ffffff;
+  --color-surface: #f7f7f7;
+  --color-surface-hover: #efefef;
+  --color-border: #e0e0e0;
+  --color-border-subtle: #ebebeb;
+  --color-text: #1a1a1a;
+  --color-text-secondary: #666666;
+  --color-text-muted: #999999;
+  --color-accent: #009110;
+  --color-accent-dim: rgba(0, 145, 16, 0.06);
   --color-amber: #c9a050;
   --color-indigo: #9090c0;
   --color-pink: #c08090;
   --color-red: #c06060;
   --color-star: #c9a050;
+  --color-gold-bg: rgba(201, 160, 80, 0.08);
+  --color-gold-border: rgba(201, 160, 80, 0.3);
+  --color-red-bg: rgba(192, 96, 96, 0.08);
+  --color-red-border: rgba(192, 96, 96, 0.3);
   --font: 'IBM Plex Mono', 'SF Mono', 'Fira Code', monospace;
   --radius: 4px;
   --radius-sm: 2px;
@@ -68,13 +72,6 @@ input, select {
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
-}
-
-@keyframes flashIn {
-  0% { opacity: 0; transform: translateX(8px); }
-  20% { opacity: 1; transform: translateX(0); }
-  80% { opacity: 1; }
-  100% { opacity: 0; }
 }
 
 .fade-in { animation: fadeIn 0.3s ease; }

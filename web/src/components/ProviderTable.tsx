@@ -56,10 +56,13 @@ export function ProviderTable({
           </tr>
         </thead>
         <tbody>
-          {[...providers].sort((a, b) => Number(b.avg_score ?? 0) - Number(a.avg_score ?? 0)).map((p, i) => (
+          {[...providers].sort((a, b) => Number(b.avg_score ?? 0) - Number(a.avg_score ?? 0)).map((p, i, arr) => {
+            const isGold = i === 0 && p.avg_score != null;
+            const isRed = i === arr.length - 1 && arr.length > 1 && p.avg_score != null && Number(p.avg_score) < Number(arr[0].avg_score);
+            return (
             <tr
               key={p.id}
-              className="provider-row"
+              className={`provider-row${isGold ? " provider-row-gold" : ""}${isRed ? " provider-row-red" : ""}`}
               onClick={() => onSelect(p.id)}
               style={{ animationDelay: `${i * 40}ms` }}
             >
@@ -82,7 +85,8 @@ export function ProviderTable({
                 <span className="time-value">{timeAgo(p.updated_at)}</span>
               </td>
             </tr>
-          ))}
+          );
+          })}
         </tbody>
       </table>
     </div>
