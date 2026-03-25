@@ -379,7 +379,9 @@ const server = Bun.serve({
           .replace(/og:description" content="[^"]*"/, 'og:description" content="Try AI demos powered by machine payments: generate music, get roasted on a phone call, receive a letter from 2030, or find leads."')
           .replace(/og:url" content="[^"]*"/, 'og:url" content="https://mpp.daimo.com/demo"')
           .replace(/twitter:title" content="[^"]*"/, 'twitter:title" content="Demos — Daimo Machine Payments"')
-          .replace(/twitter:description" content="[^"]*"/, 'twitter:description" content="Try AI demos powered by machine payments: generate music, get roasted on a phone call, receive a letter from 2030, or find leads."');
+          .replace(/twitter:description" content="[^"]*"/, 'twitter:description" content="Try AI demos powered by machine payments: generate music, get roasted on a phone call, receive a letter from 2030, or find leads."')
+          .replace(/og:image" content="[^"]*"/, 'og:image" content="https://mpp.daimo.com/og-demo.png"')
+          .replace(/twitter:image" content="[^"]*"/, 'twitter:image" content="https://mpp.daimo.com/og-demo.png"');
         return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
       }
       return new Response(indexFile);
