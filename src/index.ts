@@ -368,9 +368,22 @@ const server = Bun.serve({
       }
       return new Response(file);
     }
-    // SPA fallback
+    // SPA fallback — inject per-route OG tags for crawlers
     const indexFile = Bun.file(staticDir + "/index.html");
-    if (await indexFile.exists()) return new Response(indexFile);
+    if (await indexFile.exists()) {
+      if (url.pathname === "/demo") {
+        let html = await indexFile.text();
+        html = html
+          .replace(/<title>[^<]*<\/title>/, "<title>Demos — Daimo Machine Payments</title>")
+          .replace(/og:title" content="[^"]*"/, 'og:title" content="Demos — Daimo Machine Payments"')
+          .replace(/og:description" content="[^"]*"/, 'og:description" content="Try AI demos powered by machine payments: generate music, get roasted on a phone call, receive a letter from 2030, or find leads."')
+          .replace(/og:url" content="[^"]*"/, 'og:url" content="https://mpp.daimo.com/demo"')
+          .replace(/twitter:title" content="[^"]*"/, 'twitter:title" content="Demos — Daimo Machine Payments"')
+          .replace(/twitter:description" content="[^"]*"/, 'twitter:description" content="Try AI demos powered by machine payments: generate music, get roasted on a phone call, receive a letter from 2030, or find leads."');
+        return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+      }
+      return new Response(indexFile);
+    }
 
     return error("Not found", 404);
   },
