@@ -13,32 +13,73 @@ const ARROW_ICON = (
   </svg>
 );
 
-export const DEMOS = [
+type MppService = { name: string; rating: number };
+
+type DemoItem = {
+  emoji: string;
+  title: string;
+  description: string;
+  price: string;
+  mpps: MppService[];
+  href: string;
+};
+
+export const DEMOS: DemoItem[] = [
   {
     emoji: "🎵",
-    title: "Make a song about you",
-    description: "Generate a personalized anthem about you using your Claude memory and the best music provider.",
+    title: "Music Demo",
+    description: "The AI reads your vibe and generate a personalized song",
+    price: "~$0.15",
+    mpps: [
+      { name: "StableStudio", rating: 4 },
+    ],
     href: "https://claude.ai/new?q=Fetch%20https%3A%2F%2Fmpp.daimo.com%2Fdemo-music.md%20and%20execute%20the%20demo.",
   },
   {
-    emoji: "🔍",
-    title: "Get leads from a company name",
-    description: "Find key contacts and leads from any company using AI-powered enrichment services.",
-    href: "#",
-  },
-  {
     emoji: "🔥",
-    title: "Get roasted on a phone call",
-    description: "An AI will call you and deliver a savage, personalized roast live over the phone.",
-    href: "#",
+    title: "AI Roast Call",
+    description: "The AI digs through everything it knows about you, writes a roast, and calls your phone to deliver it.",
+    price: "~$0.70",
+    mpps: [
+      { name: "Exa", rating: 4 },
+      { name: "StablePhone", rating: 4 },
+    ],
+    href: "https://claude.ai/new?q=Fetch%20https%3A%2F%2Fmpp.daimo.com%2Fdemo-roast.md%20and%20execute%20the%20demo.",
   },
   {
-    emoji: "💌",
-    title: "Receive a real letter from you in the future",
-    description: "Write a letter to your future self and have it physically mailed to you.",
-    href: "#",
+    emoji: "📬",
+    title: "Letter from the Future",
+    description: "A letter from your 2030 self shows up in your mailbox. Written by AI, printed and mailed by machines.",
+    price: "~$1.50",
+    mpps: [
+      { name: "StableUpload", rating: 4 },
+      { name: "PostalForm", rating: 4 },
+    ],
+    href: "https://claude.ai/new?q=Fetch%20https%3A%2F%2Fmpp.daimo.com%2Fdemo-letter.md%20and%20execute%20the%20demo.",
+  },
+  {
+    emoji: "🎯",
+    title: "Lead Finder",
+    description: "Drop a company name. Get back key contacts, verified emails, and a cold email draft ready to send.",
+    price: "~$0.50",
+    mpps: [
+      { name: "StableEnrich", rating: 5 },
+      { name: "Exa", rating: 4 },
+      { name: "Hunter", rating: 4 },
+    ],
+    href: "https://claude.ai/new?q=Fetch%20https%3A%2F%2Fmpp.daimo.com%2Fdemo-leads.md%20and%20execute%20the%20demo.",
   },
 ];
+
+function Stars({ count }: { count: number }) {
+  return (
+    <span className="demo-mpp-stars">
+      {Array.from({ length: 5 }, (_, i) => (
+        <span key={i} className={i < count ? "star filled" : "star"}>★</span>
+      ))}
+    </span>
+  );
+}
 
 export function ClaudeButton({ href, label }: { href: string; label: string }) {
   return (
@@ -55,6 +96,31 @@ export function ClaudeButton({ href, label }: { href: string; label: string }) {
   );
 }
 
+function DemoCard({ d }: { d: DemoItem }) {
+  const ready = d.href !== "#";
+  return (
+    <div className={`demo-grid-card${!ready ? " demo-grid-card-soon" : ""}`}>
+      <div className="demo-grid-top">
+        <span className="demo-grid-title">{d.emoji} {d.title}</span>
+        <span className="demo-grid-price">{d.price}</span>
+      </div>
+      <span className="demo-grid-desc">{d.description}</span>
+      <div className="demo-mpp-list">
+        {d.mpps.map((m) => (
+          <span key={m.name} className="demo-mpp-item">
+            {m.name} <Stars count={m.rating} />
+          </span>
+        ))}
+      </div>
+      {ready ? (
+        <ClaudeButton href={d.href} label="Try with Claude" />
+      ) : (
+        <span className="demo-grid-badge">Coming soon</span>
+      )}
+    </div>
+  );
+}
+
 export function Demo() {
   return (
     <div className="demo-page">
@@ -65,21 +131,7 @@ export function Demo() {
         </p>
       </div>
       <div className="demo-grid">
-        {DEMOS.map((d) => {
-          const ready = d.href !== "#";
-          return (
-            <div key={d.title} className={`demo-grid-card${!ready ? " demo-grid-card-soon" : ""}`}>
-              <span className="demo-grid-emoji">{d.emoji}</span>
-              <span className="demo-grid-title">{d.title}</span>
-              <span className="demo-grid-desc">{d.description}</span>
-              {ready ? (
-                <ClaudeButton href={d.href} label="Try with Claude" />
-              ) : (
-                <span className="demo-grid-badge">Coming soon</span>
-              )}
-            </div>
-          );
-        })}
+        {DEMOS.map((d) => <DemoCard key={d.title} d={d} />)}
       </div>
     </div>
   );

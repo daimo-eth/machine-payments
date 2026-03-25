@@ -93,8 +93,11 @@ export function Dashboard({ onSelectProvider }: { onSelectProvider: (id: string)
             const ready = d.href !== "#";
             return (
               <div key={d.title} className={`demo-card${!ready ? " demo-card-soon" : ""}`}>
-                <span className="demo-card-emoji">{d.emoji}</span>
-                <span className="demo-card-title">{d.title}</span>
+                <div className="demo-card-top">
+                  <span className="demo-card-title">{d.emoji} {d.title}</span>
+                  <span className="demo-card-price">{d.price}</span>
+                </div>
+                <span className="demo-card-desc">{d.description}</span>
                 {ready ? (
                   <ClaudeButton href={d.href} label="Claude" />
                 ) : (

@@ -879,12 +879,31 @@
   pointer-events: none;
 }
 
-.demo-card-emoji { font-size: 1.2rem; }
+.demo-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
 
 .demo-card-title {
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--color-text);
+  line-height: 1.4;
+}
+
+.demo-card-price {
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.demo-card-desc {
+  font-size: 0.68rem;
+  color: var(--color-text-secondary);
   line-height: 1.4;
   flex: 1;
 }
@@ -986,7 +1005,12 @@
   pointer-events: none;
 }
 
-.demo-grid-emoji { font-size: 1.4rem; }
+.demo-grid-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
 
 .demo-grid-title {
   font-size: 0.85rem;
@@ -995,10 +1019,44 @@
   line-height: 1.3;
 }
 
+.demo-grid-price {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .demo-grid-desc {
   font-size: 0.75rem;
   color: var(--color-text-secondary);
   line-height: 1.5;
+}
+
+.demo-mpp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.demo-mpp-item {
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.demo-mpp-stars {
+  display: inline-flex;
+  gap: 1px;
+}
+.demo-mpp-stars .star {
+  font-size: 0.65rem;
+  color: var(--color-border);
+}
+.demo-mpp-stars .star.filled {
+  color: var(--color-star);
 }
 
 .demo-grid-card .demo-claude-btn {
