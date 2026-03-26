@@ -33,7 +33,7 @@ export const DEMOS: DemoItem[] = [
     mpps: [
       { name: "StableStudio", rating: 4 },
     ],
-    href: "https://claude.ai/new?q=Fetch%20https%3A%2F%2Fmpp.daimo.com%2Fdemo-music.md%20and%20execute%20the%20demo.",
+    href: "https://claude.ai/new?q=Fetch%20https%3A%2F%2Fraw.githubusercontent.com%2Fdaimo-eth%2Fmachine-payments%2Frefs%2Fheads%2Fmain%2Fweb%2Fpublic%2Fdemo-music.md%20and%20execute%20the%20demo.",
   },
   {
     emoji: "🔥",
@@ -44,7 +44,7 @@ export const DEMOS: DemoItem[] = [
       { name: "Exa", rating: 4 },
       { name: "StablePhone", rating: 4 },
     ],
-    href: "https://claude.ai/new?q=Fetch%20https%3A%2F%2Fmpp.daimo.com%2Fdemo-roast.md%20and%20execute%20the%20demo.",
+    href: "https://claude.ai/new?q=Fetch%20https%3A%2F%2Fraw.githubusercontent.com%2Fdaimo-eth%2Fmachine-payments%2Frefs%2Fheads%2Fmain%2Fweb%2Fpublic%2Fdemo-roast.md%20and%20execute%20the%20demo.",
   },
   {
     emoji: "📬",
@@ -55,7 +55,7 @@ export const DEMOS: DemoItem[] = [
       { name: "StableUpload", rating: 4 },
       { name: "PostalForm", rating: 4 },
     ],
-    href: "https://claude.ai/new?q=Fetch%20https%3A%2F%2Fmpp.daimo.com%2Fdemo-letter.md%20and%20execute%20the%20demo.",
+    href: "https://claude.ai/new?q=Fetch%20https%3A%2F%2Fraw.githubusercontent.com%2Fdaimo-eth%2Fmachine-payments%2Frefs%2Fheads%2Fmain%2Fweb%2Fpublic%2Fdemo-letter.md%20and%20execute%20the%20demo.",
   },
   {
     emoji: "🎯",
@@ -67,7 +67,7 @@ export const DEMOS: DemoItem[] = [
       { name: "Exa", rating: 4 },
       { name: "Hunter", rating: 4 },
     ],
-    href: "https://claude.ai/new?q=Fetch%20https%3A%2F%2Fmpp.daimo.com%2Fdemo-leads.md%20and%20execute%20the%20demo.",
+    href: "https://claude.ai/new?q=Fetch%20https%3A%2F%2Fraw.githubusercontent.com%2Fdaimo-eth%2Fmachine-payments%2Frefs%2Fheads%2Fmain%2Fweb%2Fpublic%2Fdemo-leads.md%20and%20execute%20the%20demo.",
   },
 ];
 
